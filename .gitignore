@@ -1,0 +1,19 @@
+# Environment & Secrets
+.env
+*.env
+
+# Python & Django
+venv/
+__pycache__/
+*.pyc
+db.sqlite3
+media/
+
+# Frontend (if applicable)
+node_modules/
+build/
+dist/
+
+# OS/IDE files
+.DS_Store
+.vscode/
