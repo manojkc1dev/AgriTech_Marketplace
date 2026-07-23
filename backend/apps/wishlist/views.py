@@ -1,6 +1,8 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, permissions
+from rest_framework import status, permissions, serializers
+from drf_spectacular.utils import extend_schema, inline_serializer
+
 from .models import Wishlist
 from .serializers import WishlistSerializer
 
@@ -12,11 +14,39 @@ class WishlistListToggleView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        responses={200: WishlistSerializer(many=True)}
+    )
     def get(self, request):
         items = Wishlist.objects.filter(user=request.user).select_related('product')
         serializer = WishlistSerializer(items, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        request=inline_serializer(
+            name='WishlistToggleRequest',
+            fields={
+                'product': serializers.IntegerField(default=1, help_text="ID of the product to add/remove")
+            }
+        ),
+        responses={
+            200: inline_serializer(
+                name='WishlistRemoveResponse',
+                fields={
+                    'message': serializers.CharField(),
+                    'is_favorited': serializers.BooleanField()
+                }
+            ),
+            201: inline_serializer(
+                name='WishlistAddResponse',
+                fields={
+                    'message': serializers.CharField(),
+                    'is_favorited': serializers.BooleanField(),
+                    'item': WishlistSerializer()
+                }
+            )
+        }
+    )
     def post(self, request):
         product_id = request.data.get('product')
         if not product_id:

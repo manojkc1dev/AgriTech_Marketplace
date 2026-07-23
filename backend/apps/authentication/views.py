@@ -4,18 +4,36 @@ from rest_framework import status, permissions
 from apps.users.models import User, VerificationStatus
 from .serializers import RegisterSerializer, UserSerializer
 from .services import AuthService
+from drf_spectacular.utils import extend_schema  
+
+
+# class RegisterView(APIView):
+#     permission_classes = [permissions.AllowAny]
+
+#     def post(self, request):
+#         serializer = RegisterSerializer(data=request.data)
+#         if serializer.is_valid():
+#             user = serializer.save()
+#             tokens = AuthService.generate_tokens_for_user(user)
+#             return Response(tokens, status=status.HTTP_201_CREATED)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class RegisterView(APIView):
-    permission_classes = [permissions.AllowAny]
 
+    @extend_schema(
+        request=RegisterSerializer,
+        responses={201: RegisterSerializer},
+        summary="Register a new user"
+    )
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
-            tokens = AuthService.generate_tokens_for_user(user)
-            return Response(tokens, status=status.HTTP_201_CREATED)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
 
 
 class CurrentUserView(APIView):

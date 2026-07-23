@@ -1,7 +1,9 @@
 import uuid
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, permissions
+from rest_framework import status, permissions, serializers
+from drf_spectacular.utils import extend_schema, inline_serializer
+
 from apps.orders.models import Order, PaymentStatus
 from .models import PaymentTransaction, PaymentGateway
 from .serializers import PaymentTransactionSerializer
@@ -13,6 +15,26 @@ class InitiatePaymentView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        request=inline_serializer(
+            name='InitiatePaymentRequest',
+            fields={
+                'order_id': serializers.IntegerField(default=1),
+                'gateway': serializers.ChoiceField(
+                    choices=[PaymentGateway.ESEWA, PaymentGateway.KHALTI],
+                    default=PaymentGateway.ESEWA
+                )
+            }
+        ),
+        responses={201: inline_serializer(
+            name='InitiatePaymentResponse',
+            fields={
+                'message': serializers.CharField(),
+                'transaction': PaymentTransactionSerializer(),
+                'checkout_details': serializers.JSONField()
+            }
+        )}
+    )
     def post(self, request):
         order_id = request.data.get('order_id')
         gateway = request.data.get('gateway', PaymentGateway.ESEWA)
@@ -49,6 +71,16 @@ class VerifyPaymentView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        request=inline_serializer(
+            name='VerifyPaymentRequest',
+            fields={
+                'transaction_id': serializers.CharField(
+                    help_text="Transaction ID generated during payment initiation"
+                )
+            }
+        )
+    )
     def post(self, request):
         txn_id = request.data.get('transaction_id')
 

@@ -1,6 +1,8 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
+
 from .models import Review
 from .serializers import ReviewSerializer
 
@@ -12,6 +14,17 @@ class ProductReviewListCreateView(APIView):
     """
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name='product_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description='Filter reviews by product ID'
+            )
+        ],
+        responses={200: ReviewSerializer(many=True)}
+    )
     def get(self, request):
         product_id = request.query_params.get('product_id')
         if product_id:
@@ -22,6 +35,10 @@ class ProductReviewListCreateView(APIView):
         serializer = ReviewSerializer(reviews, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        request=ReviewSerializer,
+        responses={201: ReviewSerializer}
+    )
     def post(self, request):
         serializer = ReviewSerializer(data=request.data)
         if serializer.is_valid():

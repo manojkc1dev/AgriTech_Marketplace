@@ -1,11 +1,12 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, permissions
+from rest_framework import serializers, status, permissions
 from django.db import transaction
 from django.db.models import Q
 from .models import Order, OrderItem, OrderStatus
 from .serializers import OrderSerializer
 from apps.products.models import Product
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 
 class OrderListCreateView(APIView):
@@ -22,6 +23,7 @@ class OrderListCreateView(APIView):
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(request=OrderSerializer)
     @transaction.atomic
     def post(self, request):
         items_data = request.data.get('items', [])
@@ -99,12 +101,25 @@ class OrderDetailView(APIView):
         except Order.DoesNotExist:
             return None
 
+    @extend_schema(responses={200: OrderSerializer})
     def get(self, request, pk):
         order = self.get_object(pk, request.user)
         if not order:
             return Response({"error": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        request=inline_serializer(
+            name='OrderStatusUpdateSchema',
+            fields={
+                'order_status': serializers.ChoiceField(
+                    choices=OrderStatus.choices,
+                    default=OrderStatus.PENDING
+                )
+            }
+        ),
+        responses={200: OrderSerializer}
+    )
     def patch(self, request, pk):
         order = self.get_object(pk, request.user)
         if not order:

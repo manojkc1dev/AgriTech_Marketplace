@@ -4,6 +4,9 @@ from rest_framework import status, permissions
 from django.db.models import Q
 from .models import CounterOffer, NegotiationStatus
 from .serializers import CounterOfferSerializer
+from rest_framework import serializers
+from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema
 
 
 class NegotiationListView(APIView):
@@ -20,6 +23,7 @@ class NegotiationListView(APIView):
         serializer = CounterOfferSerializer(negotiations, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(request=CounterOfferSerializer)
     def post(self, request):
         serializer = CounterOfferSerializer(data=request.data)
         if serializer.is_valid():
@@ -28,12 +32,25 @@ class NegotiationListView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+
 class UpdateNegotiationStatusView(APIView):
     """
     POST: Accept or Reject a counter-offer
     """
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        request=inline_serializer(
+            name='NegotiationStatusUpdateSchema',
+            fields={
+                'status': serializers.ChoiceField(
+                    choices=[NegotiationStatus.ACCEPTED, NegotiationStatus.REJECTED],
+                    default=NegotiationStatus.ACCEPTED
+                )
+            }
+        ),
+        responses={200: CounterOfferSerializer}
+    )
     def post(self, request, pk):
         try:
             negotiation = CounterOffer.objects.get(

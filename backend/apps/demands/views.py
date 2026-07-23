@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 from .models import DemandPost, DemandStatus
 from .serializers import DemandPostSerializer
+from drf_spectacular.utils import extend_schema
 
 
 class DemandPostListCreateView(APIView):
@@ -17,6 +18,8 @@ class DemandPostListCreateView(APIView):
         serializer = DemandPostSerializer(demands, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+    @extend_schema(request=DemandPostSerializer)
     def post(self, request):
         serializer = DemandPostSerializer(data=request.data)
         if serializer.is_valid():
