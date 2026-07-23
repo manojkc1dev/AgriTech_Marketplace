@@ -19,14 +19,30 @@ class CategoryListView(APIView):
 
 
 class ProductListCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     @extend_schema(
         responses={200: ProductSerializer(many=True)},
-        summary="List all available products"
+        summary="List all available products with optional filtering"
     )
     def get(self, request):
-        products = Product.objects.filter(is_available=True) # or Product.objects.all()
-        serializer = ProductSerializer(products, many=True)
+        queryset = Product.objects.filter(is_available=True).select_related('farmer', 'category')
+
+        search = request.query_params.get('search')
+        district = request.query_params.get('district')
+        category = request.query_params.get('category')
+        is_organic = request.query_params.get('organic')
+
+        if search:
+            queryset = queryset.filter(title__icontains=search)
+        if district:
+            queryset = queryset.filter(district__iexact=district)
+        if category:
+            queryset = queryset.filter(category__id=category)
+        if is_organic is not None:
+            queryset = queryset.filter(is_organic=is_organic.lower() == 'true')
+
+        serializer = ProductSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(
@@ -35,31 +51,11 @@ class ProductListCreateView(APIView):
         summary="Create a new product listing"
     )
     def post(self, request):
-            serializer = ProductSerializer(data=request.data)
-            if serializer.is_valid():
-                serializer.save(farmer=request.user)
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    # def get(self, request):
-    #     queryset = Product.objects.filter(is_available=True).select_related('farmer', 'category')
-
-    #     search = request.query_params.get('search')
-    #     district = request.query_params.get('district')
-    #     category = request.query_params.get('category')
-    #     is_organic = request.query_params.get('organic')
-
-    #     if search:
-    #         queryset = queryset.filter(title__icontains=search)
-    #     if district:
-    #         queryset = queryset.filter(district__iexact=district)
-    #     if category:
-    #         queryset = queryset.filter(category__id=category)
-    #     if is_organic is not None:
-    #         queryset = queryset.filter(is_organic=is_organic.lower() == 'true')
-
-    #     serializer = ProductSerializer(queryset, many=True)
-    #     return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer = ProductSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(farmer=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     
 

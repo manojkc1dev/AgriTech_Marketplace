@@ -27,3 +27,10 @@ class PaymentTransaction(models.Model):
 
     def __str__(self):
         return f"Txn #{self.transaction_id} | Order #{self.order.id} | NRs. {self.amount}"
+
+
+class PaymentStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    COMPLETED = "completed", "Completed"
+    FAILED = "failed", "Failed"
+    ESCROW_HELD = "escrow_held", "Escrow Held"

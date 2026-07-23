@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch, MagicMock
 from rest_framework import status
 from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
@@ -11,10 +12,9 @@ User = get_user_model()
 @pytest.mark.django_db
 class TestPaymentInitiation:
 
-    def test_initiate_payment_success(self):
+    def test_initiate_payment_esewa_success(self):
         client = APIClient()
 
-        # 1. Create Buyer and Farmer with distinct credentials
         buyer = User.objects.create_user(
             username="buyer_initiate",
             email="buyer_init@example.com",
@@ -30,31 +30,69 @@ class TestPaymentInitiation:
 
         client.force_authenticate(user=buyer)
 
-        # 2. Create test order
         order = Order.objects.create(
             buyer=buyer,
             farmer=farmer,
             total_amount=1000.00
         )
 
-        # 3. Request payment initiation
         response = client.post('/api/payments/initiate/', {
             "order_id": order.id,
             "gateway": "ESEWA"
         }, format='json')
 
-        # 4. Assertions matching your updated view/model
         assert response.status_code == status.HTTP_201_CREATED
-        assert "transaction" in response.data
-        assert response.data["transaction"]["amount"] == "1000.00"
-        assert response.data["transaction"]["gateway"] == "ESEWA"
+        assert response.data["gateway"] == "ESEWA"
+        assert "checkout_data" in response.data
+        assert response.data["checkout_data"]["total_amount"] == "1000.00"
+
+    @patch('apps.payments.views.requests.post')
+    def test_initiate_payment_khalti_success(self, mock_post):
+        client = APIClient()
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "pidx": "test_pidx_999",
+            "payment_url": "https://dev.khalti.com/checkout/test_pidx_999"
+        }
+        mock_post.return_value = mock_response
+
+        buyer = User.objects.create_user(
+            username="buyer_khalti",
+            email="buyer_khalti@example.com",
+            phone="9800000013",
+            password="password123"
+        )
+        farmer = User.objects.create_user(
+            username="farmer_khalti",
+            email="farmer_khalti@example.com",
+            phone="9800000014",
+            password="password123"
+        )
+
+        client.force_authenticate(user=buyer)
+
+        order = Order.objects.create(
+            buyer=buyer,
+            farmer=farmer,
+            total_amount=2500.00
+        )
+
+        response = client.post('/api/payments/initiate/', {
+            "order_id": order.id,
+            "gateway": "KHALTI"
+        }, format='json')
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["gateway"] == "KHALTI"
+        assert response.data["checkout_data"]["pidx"] == "test_pidx_999"
 
 
 @pytest.mark.django_db
 class TestPaymentVerification:
 
     def test_verify_payment_success(self):
-        """Test verifying a valid transaction with status SUCCESS."""
         client = APIClient()
 
         buyer = User.objects.create_user(
@@ -78,7 +116,6 @@ class TestPaymentVerification:
             total_amount=1500.00
         )
 
-        # Pre-create a pending transaction
         txn = PaymentTransaction.objects.create(
             order=order,
             transaction_id="TXN-ESEWA-001",
@@ -87,7 +124,6 @@ class TestPaymentVerification:
             is_successful=False
         )
 
-        # Call verify endpoint
         response = client.post('/api/payments/verify/', {
             "order_id": order.id,
             "transaction_id": "TXN-ESEWA-001",
@@ -98,13 +134,11 @@ class TestPaymentVerification:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["is_successful"] is True
 
-        # Check DB state updated
         txn.refresh_from_db()
         assert txn.is_successful is True
         assert txn.raw_response == {"idx": "ESEWA_REF_123"}
 
     def test_verify_payment_failure(self):
-        """Test handling a failed payment status from gateway."""
         client = APIClient()
 
         buyer = User.objects.create_user(

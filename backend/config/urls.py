@@ -24,7 +24,9 @@ urlpatterns = [
     path('api/market-prices/', include('apps.market_prices.urls')),
     path('api/demands/', include('apps.demands.urls')),
     path('api/negotiations/', include('apps.negotiations.urls')),
-    path('api/products/', include('apps.products.urls')),
+    path('api/', include('apps.products.urls')),
+    # path('api/products/', include('apps.products.urls')),
+    
     path('api/orders/', include('apps.orders.urls')),
     path('api/payments/', include('apps.payments.urls')),
     path('api/logistics/', include('apps.logistics.urls')),
