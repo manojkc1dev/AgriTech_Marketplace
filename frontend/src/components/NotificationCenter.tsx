@@ -1,26 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
+import { api } from "../utils/api";
 import {
   Bell,
   CheckCheck,
   Trash2,
   X,
-  TrendingUp,
-  CheckCircle2,
   ShoppingBag,
   Volume2,
   VolumeX,
-  Sparkles,
   Clock,
-  AlertTriangle,
-  Tag,
-  MessageSquare,
   BarChart2,
   Star,
   HelpCircle,
-  CloudRain,
   ChevronRight,
   Handshake,
-  FileText
 } from "lucide-react";
 import { PriceNotification, User } from "../types";
 import { useLanguage } from "../context/LanguageContext";
@@ -45,90 +38,6 @@ interface NotificationCenterProps {
   onOpenProfileModal?: () => void;
 }
 
-const DEFAULT_CATEGORIZED_NOTIFICATIONS: PriceNotification[] = [
-  {
-    id: "notif_price_alert_1",
-    userId: "user_1",
-    title: "📈 Price Alert: Organic Tomatoes Surged Above NRs 45/KG",
-    message: "Wholesale market rate for Organic Tomatoes reached NRs 48/KG in Kalimati (Your alert threshold: NRs 45/KG). Optimal time to publish crop listing!",
-    crop: "Organic Tomatoes",
-    currentPrice: 48,
-    threshold: 45,
-    criteria: "above",
-    region: "Kathmandu",
-    district: "Kathmandu",
-    isRead: false,
-    created_at: new Date(Date.now() - 5 * 60000).toISOString(),
-  },
-  {
-    id: "notif_neg_1",
-    userId: "user_1",
-    title: "🤝 Price Negotiation: Counter Offer Received",
-    message: "Hotel Annapurna Canteen proposed NRs. 42/KG (Counter from NRs. 45/KG) for 500KG Organic Tomatoes.",
-    crop: "Organic Tomatoes",
-    currentPrice: 42,
-    threshold: 45,
-    criteria: "below",
-    region: "Kathmandu",
-    district: "Kathmandu",
-    isRead: false,
-    created_at: new Date(Date.now() - 45 * 60000).toISOString(),
-  },
-  {
-    id: "notif_demand_1",
-    userId: "user_1",
-    title: "📦 New Buyer Bulk Demand Posted",
-    message: "Kalimati Fresh Mart requested 2,000 KG Fresh Cabbage at NRs 32/KG. Click to submit a farmer bid.",
-    crop: "Cabbage",
-    currentPrice: 32,
-    threshold: 30,
-    criteria: "above",
-    region: "Kathmandu",
-    district: "Kathmandu",
-    isRead: true,
-    created_at: new Date(Date.now() - 240 * 60000).toISOString(),
-  },
-  {
-    id: "notif_report_1",
-    userId: "user_1",
-    title: "📊 Weekly Market Price Trend Report",
-    message: "Vegetable price index in Kalimati & Balkhu wholesale hubs surged +8.4% this week. View full analytics.",
-    crop: "Market Analytics",
-    currentPrice: 0,
-    threshold: 0,
-    criteria: "above",
-    region: "All Nepal",
-    isRead: true,
-    created_at: new Date(Date.now() - 360 * 60000).toISOString(),
-  },
-  {
-    id: "notif_review_1",
-    userId: "user_1",
-    title: "⭐ New 5-Star Farmer Review!",
-    message: "Buyer Pokhara Organic Hub left a 5.0 rating: 'Pristine Makwanpur Cauliflower delivered fresh on time!'",
-    crop: "Cauliflower",
-    currentPrice: 0,
-    threshold: 0,
-    criteria: "above",
-    region: "Makwanpur",
-    isRead: true,
-    created_at: new Date(Date.now() - 480 * 60000).toISOString(),
-  },
-  {
-    id: "notif_support_1",
-    userId: "user_1",
-    title: "🎧 Support Ticket #842 Updated",
-    message: "AgriTech Admin resolved your cold-chain logistics inquiry. Status set to Resolved.",
-    crop: "Support Center",
-    currentPrice: 0,
-    threshold: 0,
-    criteria: "above",
-    region: "Bagmati",
-    isRead: true,
-    created_at: new Date(Date.now() - 600 * 60000).toISOString(),
-  },
-];
-
 export default function NotificationCenter({
   user,
   token,
@@ -144,17 +53,18 @@ export default function NotificationCenter({
   const [toasts, setToasts] = useState<PriceNotification[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [filterTab, setFilterTab] = useState<NotificationCategory>("all");
-  const [isSimulating, setIsSimulating] = useState(false);
 
   const knownIdsRef = useRef<Set<string>>(new Set());
   const isFirstLoadRef = useRef(true);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const haltPollingRef = useRef(false);
 
   // Gentle audio chime function
   const playChime = () => {
     if (!soundEnabled) return;
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
 
@@ -185,56 +95,53 @@ export default function NotificationCenter({
     }
   };
 
-  // Fetch notifications
+  // Fetch real notifications from backend API only
   const fetchNotifications = async (showToastForNew = true) => {
-    if (!token) return;
+    if (!token || !user || haltPollingRef.current) return;
+
     try {
-      const res = await fetch("/api/notifications", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data: PriceNotification[] = await res.json();
-        // Merge with default categorized notifications so all categories always have rich items
-        const combined = [...data];
-        DEFAULT_CATEGORIZED_NOTIFICATIONS.forEach((def) => {
-          if (!combined.some((item) => item.id === def.id)) {
-            combined.push(def);
-          }
-        });
+      const res = await api.get("/notifications/");
+      const data: PriceNotification[] = res.data || [];
 
-        setNotifications(combined);
+      setNotifications(data);
 
-        if (showToastForNew && !isFirstLoadRef.current) {
-          const newItems = combined.filter((n) => !n.isRead && !knownIdsRef.current.has(n.id));
-          if (newItems.length > 0) {
-            playChime();
-            setToasts((prev) => [...newItems, ...prev].slice(0, 4));
-          }
+      if (showToastForNew && !isFirstLoadRef.current) {
+        const newItems = data.filter(
+          (n) => !n.isRead && !knownIdsRef.current.has(n.id),
+        );
+        if (newItems.length > 0) {
+          playChime();
+          setToasts((prev) => [...newItems, ...prev].slice(0, 4));
         }
-
-        const updatedSet = new Set<string>();
-        combined.forEach((n) => updatedSet.add(n.id));
-        knownIdsRef.current = updatedSet;
-        isFirstLoadRef.current = false;
-      } else {
-        setNotifications(DEFAULT_CATEGORIZED_NOTIFICATIONS);
       }
-    } catch {
-      setNotifications(DEFAULT_CATEGORIZED_NOTIFICATIONS);
+
+      const updatedSet = new Set<string>();
+      data.forEach((n) => updatedSet.add(n.id));
+      knownIdsRef.current = updatedSet;
+      isFirstLoadRef.current = false;
+    } catch (error: any) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        haltPollingRef.current = true;
+      }
+      setNotifications([]);
     }
   };
 
   useEffect(() => {
-    fetchNotifications(false);
-    if (token) {
+    haltPollingRef.current = false;
+    if (token && user) {
+      fetchNotifications(false);
       const interval = setInterval(() => fetchNotifications(true), 8000);
       return () => clearInterval(interval);
     }
-  }, [token]);
+  }, [token, user]);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
@@ -244,22 +151,19 @@ export default function NotificationCenter({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [isOpen]);
 
+  if (!token || !user) {
+    return null;
+  }
+
   const handleMarkAsRead = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
     );
     setToasts((prev) => prev.filter((t) => t.id !== id));
 
     if (token) {
-      fetch(`/api/notifications/${id}/read`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ isRead: true }),
-      }).catch(() => {});
+      api.patch(`/notifications/${id}/read/`, { isRead: true }).catch(() => {});
     }
   };
 
@@ -267,10 +171,7 @@ export default function NotificationCenter({
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     setToasts([]);
     if (token) {
-      fetch("/api/notifications/read-all", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
+      api.post("/notifications/read-all/").catch(() => {});
     }
   };
 
@@ -278,71 +179,10 @@ export default function NotificationCenter({
     e.stopPropagation();
     setNotifications((prev) => prev.filter((n) => n.id !== id));
     setToasts((prev) => prev.filter((t) => t.id !== id));
+
     if (token) {
-      fetch(`/api/notifications/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
+      api.delete(`/notifications/${id}/`).catch(() => {});
     }
-  };
-
-  // Test simulation triggers for each category
-  const handleSimulateCategory = (cat: NotificationCategory) => {
-    setIsSimulating(true);
-    let title = "Notification Alert";
-    let message = "System status update.";
-    let crop = "General";
-
-    switch (cat) {
-      case "negotiations":
-        title = "🤝 Price Negotiation: New Counter Offer";
-        message = "Buyer proposed NRs. 44/KG for 300KG Red Onions. Review and respond.";
-        crop = "Red Onion";
-        break;
-      case "orders":
-        title = "📦 Demand Order Confirmed!";
-        message = "Order #ORD-8492 for 250KG Cauliflower confirmed by Kathmandu buyer.";
-        crop = "Cauliflower";
-        break;
-      case "reports":
-        title = "📊 Market Price Analytics Updated";
-        message = "Weekly price trends for Bagmati region now live.";
-        crop = "Market Trends";
-        break;
-      case "reviews":
-        title = "⭐ New 5-Star Customer Review";
-        message = "Buyer left positive feedback for pristine quality packaging.";
-        crop = "Customer Feedback";
-        break;
-      case "support":
-        title = "🎧 Support Ticket Reply";
-        message = "Admin responded to your KYC verification query.";
-        crop = "Support Inquiry";
-        break;
-      default:
-        title = "🔔 System Notification";
-        message = "Market rates updated.";
-    }
-
-    const newNotif: PriceNotification = {
-      id: "sim_" + Date.now(),
-      userId: user?.id || "guest",
-      title,
-      message,
-      crop,
-      currentPrice: 50,
-      threshold: 45,
-      criteria: "above",
-      region: "Kathmandu",
-      isRead: false,
-      created_at: new Date().toISOString(),
-    };
-
-    setNotifications((prev) => [newNotif, ...prev]);
-    knownIdsRef.current.add(newNotif.id);
-    playChime();
-    setToasts((prev) => [newNotif, ...prev].slice(0, 4));
-    setIsSimulating(false);
   };
 
   const handleNotificationClick = (notif: PriceNotification) => {
@@ -354,58 +194,190 @@ export default function NotificationCenter({
       onOpenWeatherModal();
     } else if (titleLower.includes("coupon") && onOpenCartModal) {
       onOpenCartModal();
-    } else if (titleLower.includes("support") || titleLower.includes("ticket")) {
+    } else if (
+      titleLower.includes("support") ||
+      titleLower.includes("ticket")
+    ) {
       if (onOpenSupportModal) onOpenSupportModal();
     } else if (titleLower.includes("review") && onOpenProfileModal) {
       onOpenProfileModal();
     } else if (titleLower.includes("report") || titleLower.includes("price")) {
       if (onNavigateToTab) onNavigateToTab("public_prices");
-    } else if (titleLower.includes("demand") || titleLower.includes("negotiation") || titleLower.includes("order")) {
+    } else if (
+      titleLower.includes("demand") ||
+      titleLower.includes("negotiation") ||
+      titleLower.includes("order")
+    ) {
       if (onNavigateToTab) onNavigateToTab("b2b_hub");
     }
   };
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+  // Helper to check if any notification matches a specific category text pattern
+  const categoryHasItems = (catKey: NotificationCategory) => {
+    if (catKey === "all") return notifications.length > 0;
+    if (catKey === "unread") return unreadCount > 0;
+
+    return notifications.some((n) => {
+      const lower = (n.title + " " + n.message).toLowerCase();
+      if (catKey === "price_alerts")
+        return (
+          lower.includes("price") ||
+          lower.includes("alert") ||
+          lower.includes("rate") ||
+          lower.includes("threshold") ||
+          lower.includes("surged")
+        );
+      if (catKey === "negotiations")
+        return (
+          lower.includes("negotiat") ||
+          lower.includes("counter") ||
+          lower.includes("offer")
+        );
+      if (catKey === "orders")
+        return (
+          lower.includes("order") ||
+          lower.includes("demand") ||
+          lower.includes("accept")
+        );
+      if (catKey === "reports")
+        return (
+          lower.includes("report") ||
+          lower.includes("trend") ||
+          lower.includes("analytic")
+        );
+      if (catKey === "reviews")
+        return (
+          lower.includes("review") ||
+          lower.includes("star") ||
+          lower.includes("rating")
+        );
+      if (catKey === "support")
+        return (
+          lower.includes("support") ||
+          lower.includes("ticket") ||
+          lower.includes("admin")
+        );
+      return false;
+    });
+  };
+
   const filteredNotifications = notifications.filter((n) => {
     if (filterTab === "unread") return !n.isRead;
     const lower = (n.title + " " + n.message).toLowerCase();
-    if (filterTab === "price_alerts") return lower.includes("price") || lower.includes("alert") || lower.includes("rate") || lower.includes("threshold") || lower.includes("surged");
-    if (filterTab === "negotiations") return lower.includes("negotiat") || lower.includes("counter") || lower.includes("offer");
-    if (filterTab === "orders") return lower.includes("order") || lower.includes("demand") || lower.includes("accept");
-    if (filterTab === "reports") return lower.includes("report") || lower.includes("trend") || lower.includes("analytic");
-    if (filterTab === "reviews") return lower.includes("review") || lower.includes("star") || lower.includes("rating");
-    if (filterTab === "support") return lower.includes("support") || lower.includes("ticket") || lower.includes("admin");
+    if (filterTab === "price_alerts")
+      return (
+        lower.includes("price") ||
+        lower.includes("alert") ||
+        lower.includes("rate") ||
+        lower.includes("threshold") ||
+        lower.includes("surged")
+      );
+    if (filterTab === "negotiations")
+      return (
+        lower.includes("negotiat") ||
+        lower.includes("counter") ||
+        lower.includes("offer")
+      );
+    if (filterTab === "orders")
+      return (
+        lower.includes("order") ||
+        lower.includes("demand") ||
+        lower.includes("accept")
+      );
+    if (filterTab === "reports")
+      return (
+        lower.includes("report") ||
+        lower.includes("trend") ||
+        lower.includes("analytic")
+      );
+    if (filterTab === "reviews")
+      return (
+        lower.includes("review") ||
+        lower.includes("star") ||
+        lower.includes("rating")
+      );
+    if (filterTab === "support")
+      return (
+        lower.includes("support") ||
+        lower.includes("ticket") ||
+        lower.includes("admin")
+      );
     return true;
   });
 
   const formatTimeAgo = (isoString: string) => {
-    const diffSeconds = Math.floor((new Date().getTime() - new Date(isoString).getTime()) / 1000);
+    const diffSeconds = Math.floor(
+      (new Date().getTime() - new Date(isoString).getTime()) / 1000,
+    );
     if (diffSeconds < 30) return t("Just now");
-    if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ${t("ago")}`;
-    if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h ${t("ago")}`;
+    if (diffSeconds < 3600)
+      return `${Math.floor(diffSeconds / 60)}m ${t("ago")}`;
+    if (diffSeconds < 86400)
+      return `${Math.floor(diffSeconds / 3600)}h ${t("ago")}`;
     return new Date(isoString).toLocaleDateString();
   };
 
   const getCategoryIcon = (title: string) => {
     const lower = title.toLowerCase();
-    if (lower.includes("negotiat") || lower.includes("counter") || lower.includes("offer")) {
-      return <Handshake className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />;
+    if (
+      lower.includes("negotiat") ||
+      lower.includes("counter") ||
+      lower.includes("offer")
+    ) {
+      return (
+        <Handshake className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+      );
     }
-    if (lower.includes("order") || lower.includes("demand") || lower.includes("accept")) {
+    if (
+      lower.includes("order") ||
+      lower.includes("demand") ||
+      lower.includes("accept")
+    ) {
       return <ShoppingBag className="w-4 h-4 text-indigo-500 shrink-0" />;
     }
-    if (lower.includes("report") || lower.includes("trend") || lower.includes("analytic")) {
+    if (
+      lower.includes("report") ||
+      lower.includes("trend") ||
+      lower.includes("analytic")
+    ) {
       return <BarChart2 className="w-4 h-4 text-purple-500 shrink-0" />;
     }
-    if (lower.includes("review") || lower.includes("star") || lower.includes("rating")) {
+    if (
+      lower.includes("review") ||
+      lower.includes("star") ||
+      lower.includes("rating")
+    ) {
       return <Star className="w-4 h-4 text-amber-400 shrink-0" />;
     }
     if (lower.includes("support") || lower.includes("ticket")) {
       return <HelpCircle className="w-4 h-4 text-rose-500 shrink-0" />;
     }
-    return <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />;
+    return (
+      <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+    );
   };
+
+  // Define all available tabs mapping
+  const allCategoryTabs: [NotificationCategory, string][] = [
+    ["all", "All"],
+    ["unread", "Unread"],
+    ["price_alerts", "Price Alerts"],
+    ["negotiations", "Negotiations"],
+    ["orders", "Orders"],
+    ["reports", "Reports"],
+    ["reviews", "Reviews"],
+    ["support", "Support"],
+  ];
+
+  // Filter tabs dynamically: Always show "All" & "Unread" if there are notifications,
+  // but only show specific category tabs if an incoming notification belongs to that category.
+  const activeCategoryTabs = allCategoryTabs.filter(([catKey]) => {
+    if (catKey === "all" || catKey === "unread")
+      return notifications.length > 0;
+    return categoryHasItems(catKey);
+  });
 
   return (
     <div className="relative" ref={popoverRef}>
@@ -448,7 +420,9 @@ export default function NotificationCenter({
                     </span>
                   )}
                 </h3>
-                <p className="text-[10px] text-slate-400">{t("Price Alerts, Negotiations, Orders & Support")}</p>
+                <p className="text-[10px] text-slate-400">
+                  {t("Price Alerts, Negotiations, Orders & Support")}
+                </p>
               </div>
             </div>
 
@@ -457,7 +431,9 @@ export default function NotificationCenter({
                 type="button"
                 onClick={() => setSoundEnabled(!soundEnabled)}
                 className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
-                title={soundEnabled ? "Disable audio chime" : "Enable audio chime"}
+                title={
+                  soundEnabled ? "Disable audio chime" : "Enable audio chime"
+                }
               >
                 {soundEnabled ? (
                   <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
@@ -487,43 +463,36 @@ export default function NotificationCenter({
             </div>
           </div>
 
-
-
-          {/* Filter Category Scrollable Tabs */}
-          <div className="flex items-center overflow-x-auto border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 px-2 pt-1 text-[11px] no-scrollbar whitespace-nowrap">
-            {(
-              [
-                ["all", "All"],
-                ["unread", "Unread"],
-                ["price_alerts", "Price Alerts"],
-                ["negotiations", "Negotiations"],
-                ["orders", "Orders"],
-                ["reports", "Reports"],
-                ["reviews", "Reviews"],
-                ["support", "Support"],
-              ] as [NotificationCategory, string][]
-            ).map(([catKey, label]) => (
-              <button
-                key={catKey}
-                onClick={() => setFilterTab(catKey)}
-                className={`px-2.5 py-1.5 font-bold border-b-2 transition cursor-pointer ${
-                  filterTab === catKey
-                    ? "border-emerald-600 text-emerald-700 dark:text-emerald-400"
-                    : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          {/* Dynamic Filter Category Scrollable Tabs */}
+          {activeCategoryTabs.length > 1 && (
+            <div className="flex items-center overflow-x-auto border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 px-2 pt-1 text-[11px] no-scrollbar whitespace-nowrap">
+              {activeCategoryTabs.map(([catKey, label]) => (
+                <button
+                  key={catKey}
+                  onClick={() => setFilterTab(catKey)}
+                  className={`px-2.5 py-1.5 font-bold border-b-2 transition cursor-pointer ${
+                    filterTab === catKey
+                      ? "border-emerald-600 text-emerald-700 dark:text-emerald-400"
+                      : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Notification List */}
           <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60">
             {filteredNotifications.length === 0 ? (
               <div className="p-8 text-center text-slate-400 dark:text-slate-500">
                 <Bell className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <p className="text-xs font-semibold">{t("No notifications found")}</p>
-                <p className="text-[10px] mt-1 text-slate-400">{t("New alerts will appear here in real-time.")}</p>
+                <p className="text-xs font-semibold">
+                  {t("No notifications found")}
+                </p>
+                <p className="text-[10px] mt-1 text-slate-400">
+                  {t("New alerts will appear here in real-time.")}
+                </p>
               </div>
             ) : (
               filteredNotifications.map((notif) => (
@@ -550,12 +519,19 @@ export default function NotificationCenter({
                     <div className="flex items-center justify-between gap-1">
                       <h4
                         className={`text-xs font-bold leading-tight truncate ${
-                          !notif.isRead ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-300"
+                          !notif.isRead
+                            ? "text-slate-900 dark:text-white"
+                            : "text-slate-700 dark:text-slate-300"
                         }`}
                       >
                         {notif.title}
                       </h4>
-                      {!notif.isRead && <span className="w-2 h-2 bg-emerald-500 rounded-full shrink-0" title="Unread" />}
+                      {!notif.isRead && (
+                        <span
+                          className="w-2 h-2 bg-emerald-500 rounded-full shrink-0"
+                          title="Unread"
+                        />
+                      )}
                     </div>
 
                     <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed break-words">
@@ -637,13 +613,17 @@ export default function NotificationCenter({
                   >
                     {t("View Details")}
                   </button>
-                  <span className="text-[10px] text-slate-400 font-mono">{formatTimeAgo(toast.created_at)}</span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {formatTimeAgo(toast.created_at)}
+                  </span>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+                onClick={() =>
+                  setToasts((prev) => prev.filter((t) => t.id !== toast.id))
+                }
                 className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white transition cursor-pointer"
               >
                 <X className="w-4 h-4" />

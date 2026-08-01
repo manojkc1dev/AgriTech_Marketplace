@@ -14,7 +14,28 @@ import CartDrawerModal from "./components/CartDrawerModal";
 import SupportTicketCenterModal from "./components/SupportTicketCenterModal";
 import SettingsModal from "./components/SettingsModal";
 import ReviewsRatingsModal from "./components/ReviewsRatingsModal";
-import { LogOut, Globe, Sprout, ShieldAlert, CheckCircle2, RefreshCw, Sun, Moon, Sparkles, MessageSquarePlus, Plus, MapPin, Sliders, ChevronDown, User as UserIcon, Building2, ShoppingCart, Settings, Star } from "lucide-react";
+import ForcePasswordChangeModal from "./components/ForcePasswordChangeModal";
+import {
+  LogOut,
+  Globe,
+  Sprout,
+  ShieldAlert,
+  CheckCircle2,
+  RefreshCw,
+  Sun,
+  Moon,
+  Sparkles,
+  MessageSquarePlus,
+  Plus,
+  MapPin,
+  Sliders,
+  ChevronDown,
+  User as UserIcon,
+  Building2,
+  ShoppingCart,
+  Settings,
+  Star,
+} from "lucide-react";
 import { useLanguage } from "./context/LanguageContext";
 import { useTheme } from "./context/ThemeContext";
 import { useCart } from "./context/CartContext";
@@ -22,7 +43,9 @@ import { useCart } from "./context/CartContext";
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string>("");
-  const [activePortal, setActivePortal] = useState<"portal" | "public_prices" | "b2b_hub">("public_prices");
+  const [activePortal, setActivePortal] = useState<
+    "portal" | "public_prices" | "b2b_hub"
+  >("public_prices");
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [isProfileDashboardOpen, setIsProfileDashboardOpen] = useState(false);
   const [isOptionsDropdownOpen, setIsOptionsDropdownOpen] = useState(false);
@@ -31,15 +54,18 @@ export default function App() {
   const [isReviewsModalOpen, setIsReviewsModalOpen] = useState(false);
   const { language, setLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
+
+  // Use cart items and state trigger from useCart context
   const { cart, setIsCartOpen } = useCart();
 
-  // Load auth state from session/localStorage
+  // Load auth state and user-specific cart from localStorage on mount
   useEffect(() => {
     const savedUser = localStorage.getItem("agritech_user");
     const savedToken = localStorage.getItem("agritech_token");
     if (savedUser && savedToken) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsedUser: User = JSON.parse(savedUser);
+        setUser(parsedUser);
         setToken(savedToken);
       } catch (e) {
         localStorage.removeItem("agritech_user");
@@ -49,16 +75,37 @@ export default function App() {
   }, []);
 
   const handleAuthSuccess = (authUser: User, authToken: string) => {
-    setUser(authUser);
+    const rawUser = authUser as any;
+    const safeUser: User = {
+      ...authUser,
+      fullName:
+        rawUser?.fullName ||
+        rawUser?.full_name ||
+        rawUser?.username ||
+        "Authorized User",
+      role: rawUser?.role || "farmer",
+      is_first_login: rawUser?.is_first_login ?? false,
+    };
+    setUser(safeUser);
     setToken(authToken);
-    localStorage.setItem("agritech_user", JSON.stringify(authUser));
+    localStorage.setItem("agritech_user", JSON.stringify(safeUser));
     localStorage.setItem("agritech_token", authToken);
     setActivePortal("portal");
   };
 
   const handleUserUpdate = (updatedUser: User) => {
-    setUser(updatedUser);
-    localStorage.setItem("agritech_user", JSON.stringify(updatedUser));
+    const rawUser = updatedUser as any;
+    const safeUser: User = {
+      ...updatedUser,
+      fullName:
+        rawUser?.fullName ||
+        rawUser?.full_name ||
+        rawUser?.username ||
+        "Authorized User",
+      role: rawUser?.role || "farmer",
+    };
+    setUser(safeUser);
+    localStorage.setItem("agritech_user", JSON.stringify(safeUser));
   };
 
   const handleLogout = () => {
@@ -72,26 +119,36 @@ export default function App() {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "farmer":
-        return { text: t("Farmer (किसान)"), style: "bg-emerald-50 text-emerald-700 border-emerald-100" };
+        return {
+          text: t("Farmer (किसान)"),
+          style: "bg-emerald-50 text-emerald-700 border-emerald-100",
+        };
       case "buyer":
-        return { text: t("B2B Buyer"), style: "bg-blue-50 text-blue-700 border-blue-100" };
+        return {
+          text: t("B2B Buyer"),
+          style: "bg-blue-50 text-blue-700 border-blue-100",
+        };
       case "admin":
-        return { text: t("Light Code Admin"), style: "bg-purple-50 text-purple-700 border-purple-100" };
+        return {
+          text: t("Super Admin"),
+          style: "bg-purple-50 text-purple-700 border-purple-100",
+        };
       default:
-        return { text: t("Guest"), style: "bg-slate-50 text-slate-700 border-slate-100" };
+        return {
+          text: t("Guest"),
+          style: "bg-slate-50 text-slate-700 border-slate-100",
+        };
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-800 dark:text-slate-200 flex flex-col justify-between selection:bg-emerald-100 dark:selection:bg-emerald-900/40 selection:text-emerald-900 dark:selection:text-emerald-250">
-      
       {/* Platform Global Top Bar */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            
             {/* Logo Group */}
-            <div 
+            <div
               onClick={() => setActivePortal("public_prices")}
               className="flex items-center space-x-3 cursor-pointer group"
               title={t("Browse Public Prices Index (Home)")}
@@ -150,59 +207,65 @@ export default function App() {
 
             {/* Nav Bar Actions: Notification Icon, Add to Cart (middle), and User Profile / Options */}
             <div className="flex items-center space-x-2 sm:space-x-2.5">
-              
-              {/* Fully functional Notification Center Icon */}
               <NotificationCenter
                 user={user}
                 token={token}
                 onNavigateToTab={(tab) => setActivePortal(tab as any)}
                 onOpenCartModal={() => setIsCartOpen(true)}
                 onOpenSupportModal={() => setIsSupportModalOpen(true)}
-                onOpenProfileModal={() => user && setIsProfileDashboardOpen(true)}
+                onOpenProfileModal={() =>
+                  user && setIsProfileDashboardOpen(true)
+                }
               />
 
-              {/* 'Cart' fully functional button in the middle of notification and user */}
-              <button
-                type="button"
-                onClick={() => setIsCartOpen(true)}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs transition cursor-pointer shadow-xs flex items-center space-x-1.5 relative shrink-0"
-                title={t("Open Shopping Cart")}
-                id="nav-cart-trigger"
-              >
-                <ShoppingCart className="w-4 h-4 text-white" />
-                <span className="hidden sm:inline font-semibold">{t("Cart")}</span>
-                {cart.length > 0 && (
-                  <span className="px-1.5 py-0.25 bg-amber-400 text-slate-950 font-black rounded-full text-[10px] shadow-2xs font-mono">
-                    {cart.length}
+              {/* Shopping Cart button restricted exclusively to buyers */}
+              {user?.role === "buyer" && (
+                <button
+                  type="button"
+                  onClick={() => setIsCartOpen(true)}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs transition cursor-pointer shadow-xs flex items-center space-x-1.5 relative shrink-0"
+                  title={t("Open Shopping Cart")}
+                  id="nav-cart-trigger"
+                >
+                  <ShoppingCart className="w-4 h-4 text-white" />
+                  <span className="hidden sm:inline font-semibold">
+                    {t("Cart")}
                   </span>
-                )}
-              </button>
+                  {cart.length > 0 && (
+                    <span className="px-1.5 py-0.25 bg-amber-400 text-slate-950 font-black rounded-full text-[10px] shadow-2xs font-mono">
+                      {cart.length}
+                    </span>
+                  )}
+                </button>
+              )}
 
               {user ? (
-                /* AFTER LOGIN: Single Options Dropdown containing User Dashboard, F&Q, Settings, Appearance, Language, Logout */
                 <div className="relative">
                   <button
-                    onClick={() => setIsOptionsDropdownOpen(!isOptionsDropdownOpen)}
+                    onClick={() =>
+                      setIsOptionsDropdownOpen(!isOptionsDropdownOpen)
+                    }
                     className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-900 dark:text-emerald-200 font-bold text-xs transition cursor-pointer shadow-xs flex items-center space-x-2"
                     title={t("Settings & Options")}
                     id="logged-in-options-trigger"
                   >
                     <UserIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <span className="max-w-[120px] truncate">{user.fullName.split(" ")[0]}</span>
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isOptionsDropdownOpen ? "rotate-180" : ""}`} />
+                    <span className="max-w-[120px] truncate">
+                      {(user.fullName || user.username || "User").split(" ")[0]}
+                    </span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 transition-transform ${isOptionsDropdownOpen ? "rotate-180" : ""}`}
+                    />
                   </button>
 
                   {isOptionsDropdownOpen && (
                     <>
-                      {/* Transparent Backdrop to close dropdown on outside click */}
-                      <div 
-                        className="fixed inset-0 z-40" 
-                        onClick={() => setIsOptionsDropdownOpen(false)} 
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setIsOptionsDropdownOpen(false)}
                       />
 
                       <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-slate-850 rounded-xl shadow-xl border border-slate-200 dark:border-slate-750 p-3.5 z-50 space-y-2.5 animate-in fade-in zoom-in-95 duration-100 text-left">
-                        
-                        {/* 1. User Dashboard Option (Profile Header Card) */}
                         <button
                           onClick={() => {
                             setIsProfileDashboardOpen(true);
@@ -215,13 +278,23 @@ export default function App() {
                           <div className="relative shrink-0">
                             <div className="w-9 h-9 rounded-full bg-emerald-600 text-white font-black text-sm flex items-center justify-center shadow-xs overflow-hidden">
                               {user.profilePic ? (
-                                <img src={user.profilePic} alt={user.fullName} className="w-full h-full object-cover" />
+                                <img
+                                  src={user.profilePic}
+                                  alt={user.fullName || user.username}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : user.fullName ? (
+                                user.fullName.charAt(0).toUpperCase()
                               ) : (
-                                user.fullName ? user.fullName.charAt(0).toUpperCase() : "U"
+                                "U"
                               )}
                             </div>
-                            {(user.verified || user.verificationStatus === 'verified') ? (
-                              <span className="absolute -bottom-1 -right-1 bg-white dark:bg-slate-900 rounded-full p-0.5 shadow-xs" title={t("Verified User")}>
+                            {user.verified ||
+                            user.verificationStatus === "verified" ? (
+                              <span
+                                className="absolute -bottom-1 -right-1 bg-white dark:bg-slate-900 rounded-full p-0.5 shadow-xs"
+                                title={t("Verified User")}
+                              >
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                               </span>
                             ) : (
@@ -230,21 +303,32 @@ export default function App() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition flex items-center space-x-1">
-                              <span className="truncate">{user.fullName}</span>
-                              {(user.verified || user.verificationStatus === 'verified') && (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" title={t("Verified User")} />
+                              <span className="truncate">
+                                {user.fullName || user.username}
+                              </span>
+                              {(user.verified ||
+                                user.verificationStatus === "verified") && (
+                                <span
+                                  title={t("Verified User")}
+                                  className="inline-flex items-center"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                </span>
                               )}
                             </div>
                             <div className="flex items-center space-x-1.5 mt-0.5">
-                              <span className={`text-[9px] font-bold uppercase tracking-wide border px-1.5 py-0.25 rounded-full ${getRoleBadge(user.role).style}`}>
+                              <span
+                                className={`text-[9px] font-bold uppercase tracking-wide border px-1.5 py-0.25 rounded-full ${getRoleBadge(user.role).style}`}
+                              >
                                 {getRoleBadge(user.role).text}
                               </span>
-                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">{t("User Dashboard")}</span>
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                {t("User Dashboard")}
+                              </span>
                             </div>
                           </div>
                         </button>
 
-                        {/* F&Q (FAQ & Feedback) Option */}
                         <div>
                           <button
                             onClick={() => {
@@ -258,11 +342,12 @@ export default function App() {
                               <MessageSquarePlus className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                               <span>{t("F&Q (FAQ & Feedback)")}</span>
                             </div>
-                            <span className="text-[10px] bg-amber-200/60 dark:bg-amber-800/60 px-1.5 py-0.5 rounded font-mono font-bold">FAQ</span>
+                            <span className="text-[10px] bg-amber-200/60 dark:bg-amber-800/60 px-1.5 py-0.5 rounded font-mono font-bold">
+                              FAQ
+                            </span>
                           </button>
                         </div>
 
-                        {/* 3. Reviews & Ratings Option */}
                         <div>
                           <button
                             onClick={() => {
@@ -276,11 +361,12 @@ export default function App() {
                               <Star className="w-4 h-4 fill-amber-400 text-amber-500 shrink-0" />
                               <span>{t("Reviews & Ratings")}</span>
                             </div>
-                            <span className="text-[10px] bg-amber-200 dark:bg-amber-800/80 text-amber-950 dark:text-amber-200 px-1.5 py-0.5 rounded font-mono font-bold">★ 4.9</span>
+                            <span className="text-[10px] bg-amber-200 dark:bg-amber-800/80 text-amber-950 dark:text-amber-200 px-1.5 py-0.5 rounded font-mono font-bold">
+                              ★ 4.9
+                            </span>
                           </button>
                         </div>
 
-                        {/* 4. Settings Option (Shifts in demand, Severe weather, Reports, Support) */}
                         <div>
                           <button
                             onClick={() => {
@@ -294,13 +380,16 @@ export default function App() {
                               <Settings className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                               <span>{t("Settings & Preferences")}</span>
                             </div>
-                            <span className="text-[10px] bg-emerald-200/60 dark:bg-emerald-800/60 text-emerald-950 dark:text-emerald-200 px-1.5 py-0.5 rounded font-mono font-bold">New</span>
+                            <span className="text-[10px] bg-emerald-200/60 dark:bg-emerald-800/60 text-emerald-950 dark:text-emerald-200 px-1.5 py-0.5 rounded font-mono font-bold">
+                              New
+                            </span>
                           </button>
                         </div>
 
-                        {/* 4. Appearance (Light / Dark mode) Option */}
                         <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70">
-                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 px-1">{t("Appearance")}</span>
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 px-1">
+                            {t("Appearance")}
+                          </span>
                           <button
                             onClick={() => toggleTheme()}
                             className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-650 transition cursor-pointer shadow-2xs"
@@ -320,9 +409,10 @@ export default function App() {
                           </button>
                         </div>
 
-                        {/* 5. Language (EN / नेपाली) Option */}
                         <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70">
-                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 px-1">{t("Language")}</span>
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 px-1">
+                            {t("Language")}
+                          </span>
                           <div className="flex items-center space-x-1 bg-slate-200/70 dark:bg-slate-700/80 p-0.5 rounded-lg border border-slate-300/50 dark:border-slate-600/50">
                             <button
                               onClick={() => setLanguage("en")}
@@ -349,7 +439,6 @@ export default function App() {
 
                         <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
 
-                        {/* 6. Logout Option */}
                         <div>
                           <button
                             onClick={() => {
@@ -363,24 +452,26 @@ export default function App() {
                               <LogOut className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
                               <span>{t("Logout")}</span>
                             </div>
-                            <span className="text-[10px] text-rose-500 font-mono font-bold uppercase">Exit</span>
+                            <span className="text-[10px] text-rose-500 font-mono font-bold uppercase">
+                              Exit
+                            </span>
                           </button>
                         </div>
-
                       </div>
                     </>
                   )}
                 </div>
               ) : (
-                /* BEFORE LOGIN: Clean theme, language and login/register controls only */
                 <>
-                  {/* DESKTOP / TABLET (md and above): Direct inline theme & language controls */}
                   <div className="hidden md:flex items-center space-x-2 sm:space-x-2.5">
-                    {/* Theme Switcher Toggle Button */}
                     <button
                       onClick={toggleTheme}
                       className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 transition duration-150 cursor-pointer shadow-xs flex items-center justify-center"
-                      title={theme === "light" ? "Switch to Dark Mode (डार्क मोड)" : "Switch to Light Mode (लाइट मोड)"}
+                      title={
+                        theme === "light"
+                          ? "Switch to Dark Mode"
+                          : "Switch to Light Mode"
+                      }
                       id="nav-theme-switcher-toggle"
                     >
                       {theme === "light" ? (
@@ -390,8 +481,10 @@ export default function App() {
                       )}
                     </button>
 
-                    {/* Language Switcher */}
-                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700" id="nav-language-switcher">
+                    <div
+                      className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700"
+                      id="nav-language-switcher"
+                    >
                       <button
                         onClick={() => setLanguage("en")}
                         className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase transition cursor-pointer ${
@@ -399,7 +492,6 @@ export default function App() {
                             ? "bg-white dark:bg-slate-700 text-emerald-800 dark:text-emerald-400 shadow-xs"
                             : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                         }`}
-                        title="Switch to English"
                       >
                         EN
                       </button>
@@ -410,90 +502,18 @@ export default function App() {
                             ? "bg-white dark:bg-slate-700 text-emerald-800 dark:text-emerald-400 shadow-xs"
                             : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                         }`}
-                        title="नेपालीमा परिवर्तन गर्नुहोस्"
                       >
                         नेपाली
                       </button>
                     </div>
                   </div>
 
-                  {/* MOBILE ONLY (md:hidden): Compact Icon-Only Options Dropdown Button */}
-                  <div className="relative md:hidden">
-                    <button
-                      onClick={() => setIsOptionsDropdownOpen(!isOptionsDropdownOpen)}
-                      className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 transition cursor-pointer shadow-xs flex items-center justify-center"
-                      title={t("Settings & Options")}
-                      id="mobile-options-dropdown-trigger"
-                    >
-                      <Sliders className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
-                    </button>
-
-                    {isOptionsDropdownOpen && (
-                      <>
-                        <div 
-                          className="fixed inset-0 z-40" 
-                          onClick={() => setIsOptionsDropdownOpen(false)} 
-                        />
-
-                        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-850 rounded-xl shadow-xl border border-slate-200 dark:border-slate-750 p-3 z-50 space-y-2 animate-in fade-in zoom-in-95 duration-100 text-left">
-                          
-                          {/* Theme Switcher Item */}
-                          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70">
-                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 px-1">{t("Appearance")}</span>
-                            <button
-                              onClick={() => toggleTheme()}
-                              className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-650 transition cursor-pointer shadow-2xs"
-                              id="dropdown-guest-theme"
-                            >
-                              {theme === "light" ? (
-                                <>
-                                  <Moon className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                                  <span>Dark</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Sun className="w-3.5 h-3.5 text-amber-500" />
-                                  <span>Light</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-
-                          {/* Language Switcher Item */}
-                          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70">
-                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 px-1">{t("Language")}</span>
-                            <div className="flex items-center space-x-1 bg-slate-200/70 dark:bg-slate-700/80 p-0.5 rounded-lg border border-slate-300/50 dark:border-slate-600/50">
-                              <button
-                                onClick={() => setLanguage("en")}
-                                className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase transition cursor-pointer ${
-                                  language === "en"
-                                    ? "bg-white dark:bg-slate-800 text-emerald-800 dark:text-emerald-400 shadow-2xs"
-                                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                                }`}
-                              >
-                                EN
-                              </button>
-                              <button
-                                onClick={() => setLanguage("ne")}
-                                className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase transition cursor-pointer ${
-                                  language === "ne"
-                                    ? "bg-white dark:bg-slate-800 text-emerald-800 dark:text-emerald-400 shadow-2xs"
-                                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                                }`}
-                              >
-                                नेपाली
-                              </button>
-                            </div>
-                          </div>
-
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* When user is not logged in, show Sign In button */}
                   <button
-                    onClick={() => setActivePortal(activePortal === "portal" ? "public_prices" : "portal")}
+                    onClick={() =>
+                      setActivePortal(
+                        activePortal === "portal" ? "public_prices" : "portal",
+                      )
+                    }
                     className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition flex items-center space-x-1.5 cursor-pointer shadow-xs ${
                       activePortal === "portal"
                         ? "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700"
@@ -502,12 +522,15 @@ export default function App() {
                     id="nav-login-trigger"
                   >
                     <UserIcon className="w-4 h-4" />
-                    <span>{activePortal === "portal" ? t("View Market Rates") : t("Sign In / Register")}</span>
+                    <span>
+                      {activePortal === "portal"
+                        ? t("View Market Rates")
+                        : t("Sign In / Register")}
+                    </span>
                   </button>
                 </>
               )}
             </div>
-
           </div>
         </div>
       </header>
@@ -515,16 +538,15 @@ export default function App() {
       {/* Main Centered Workspace */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
         <div className="w-full space-y-6">
-          
-          {/* User is Logged In */}
           {user ? (
             <div>
-              {/* Mobile Portal Navigation Buttons */}
               <div className="flex md:hidden items-center justify-center space-x-1 bg-slate-200/60 dark:bg-slate-800/60 p-1 rounded-lg mb-6 border border-slate-300 dark:border-slate-700">
                 <button
                   onClick={() => setActivePortal("portal")}
                   className={`flex-1 py-1.5 rounded-md text-[11px] font-semibold uppercase tracking-wider transition ${
-                    activePortal === "portal" ? "bg-emerald-800 text-white shadow-sm" : "text-slate-600 dark:text-slate-400"
+                    activePortal === "portal"
+                      ? "bg-emerald-800 text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-400"
                   }`}
                 >
                   {t("Dashboard")}
@@ -532,7 +554,9 @@ export default function App() {
                 <button
                   onClick={() => setActivePortal("public_prices")}
                   className={`flex-1 py-1.5 rounded-md text-[11px] font-semibold uppercase tracking-wider transition ${
-                    activePortal === "public_prices" ? "bg-emerald-800 text-white shadow-sm" : "text-slate-600 dark:text-slate-400"
+                    activePortal === "public_prices"
+                      ? "bg-emerald-800 text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-400"
                   }`}
                 >
                   {t("Market Rate")}
@@ -540,33 +564,45 @@ export default function App() {
                 <button
                   onClick={() => setActivePortal("b2b_hub")}
                   className={`flex-1 py-1.5 rounded-md text-[11px] font-semibold uppercase tracking-wider transition ${
-                    activePortal === "b2b_hub" ? "bg-emerald-800 text-white shadow-sm" : "text-slate-600 dark:text-slate-400"
+                    activePortal === "b2b_hub"
+                      ? "bg-emerald-800 text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-400"
                   }`}
                 >
                   {t("Supply Chain")}
                 </button>
               </div>
 
-              {/* Portal Screen Router */}
               {activePortal === "public_prices" ? (
                 <MarketPricesView user={user} token={token} />
               ) : activePortal === "b2b_hub" ? (
                 <B2bMarketplaceHub user={user} token={token} />
               ) : (
                 <>
-                  {user.role === "farmer" && <FarmerDashboard user={user} token={token} onUserUpdate={handleUserUpdate} />}
-                  {user.role === "buyer" && <BuyerDashboard user={user} token={token} />}
-                  {user.role === "admin" && <AdminDashboard user={user} token={token} />}
-                  {user.role === "cooperative" && <CooperativeDashboard user={user} token={token} />}
+                  {user.role === "farmer" && (
+                    <FarmerDashboard
+                      user={user}
+                      token={token}
+                      onUserUpdate={handleUserUpdate}
+                    />
+                  )}
+                  {user.role === "buyer" && (
+                    <BuyerDashboard user={user} token={token} />
+                  )}
+                  {user.role === "admin" && (
+                    <AdminDashboard user={user} token={token} />
+                  )}
+                  {user.role === "cooperative" && (
+                    <CooperativeDashboard user={user} token={token} />
+                  )}
                 </>
               )}
             </div>
           ) : (
-            /* User is not Authenticated - Show Guest Public Market Price Index or Login Form */
             <div className="space-y-6">
               {activePortal === "portal" ? (
-                <LoginRegister 
-                  onAuthSuccess={handleAuthSuccess} 
+                <LoginRegister
+                  onAuthSuccess={handleAuthSuccess}
                   onGoToPublicPrices={() => setActivePortal("public_prices")}
                 />
               ) : (
@@ -574,86 +610,128 @@ export default function App() {
               )}
             </div>
           )}
-
         </div>
       </main>
 
       {/* Single Clean Footer */}
       <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 mt-16 pt-10 pb-8 text-xs text-slate-600 dark:text-slate-400">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          
-          {/* 4-Column Grid Footer */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            
-            {/* Col 1: Logo & Mission */}
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-emerald-900 text-emerald-400 rounded-lg flex items-center justify-center font-bold shadow-sm">
                   <Sprout className="w-5 h-5 text-emerald-400" />
                 </div>
                 <span className="font-bold text-base font-display text-slate-900 dark:text-white">
-                  AgriTech <span className="text-emerald-600 font-normal">Nepal</span>
+                  AgriTech{" "}
+                  <span className="text-emerald-600 font-normal">Nepal</span>
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Empowering smallholder farmers, regional cooperatives, and B2B wholesale buyers with transparent daily market prices and streamlined agricultural supply chains.
+                Empowering smallholder farmers, regional cooperatives, and B2B
+                wholesale buyers with transparent daily market prices and
+                streamlined agricultural supply chains.
               </p>
             </div>
 
-            {/* Col 2: Platform Services */}
             <div className="space-y-2.5">
-              <h4 className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-slate-200">Platform Services</h4>
+              <h4 className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-slate-200">
+                Platform Services
+              </h4>
               <ul className="space-y-2 text-xs text-slate-500 dark:text-slate-400">
-                <li className="flex items-center space-x-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /><span>Live Market Price Index</span></li>
-                <li className="flex items-center space-x-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /><span>Member Portal Access</span></li>
-                <li className="flex items-center space-x-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /><span>Verified Wholesale Rates</span></li>
+                <li className="flex items-center space-x-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Live Market Price Index</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Member Portal Access</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Verified Wholesale Rates</span>
+                </li>
               </ul>
             </div>
 
-            {/* Col 3: Key Hubs */}
             <div className="space-y-2.5">
-              <h4 className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-slate-200">Key Hubs</h4>
+              <h4 className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-slate-200">
+                Key Hubs
+              </h4>
               <ul className="space-y-2 text-xs text-slate-500 dark:text-slate-400">
-                <li className="flex items-center space-x-2"><MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" /><span>Kathmandu Wholesale Market</span></li>
-                <li className="flex items-center space-x-2"><MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" /><span>Dhading Produce Hub</span></li>
-                <li className="flex items-center space-x-2"><MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" /><span>Makwanpur Cooperative Network</span></li>
+                <li className="flex items-center space-x-2">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Kathmandu Wholesale Market</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Dhading Produce Hub</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Makwanpur Cooperative Network</span>
+                </li>
               </ul>
             </div>
 
-            {/* Col 4: Technical Partner */}
             <div className="space-y-2.5">
-              <h4 className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-slate-200">Technical Partner</h4>
+              <h4 className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-slate-200">
+                Technical Partner
+              </h4>
               <div className="flex items-start space-x-2.5 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-700">
                 <div className="p-2 bg-emerald-900 text-emerald-400 rounded-lg shrink-0">
                   <Sprout className="w-5 h-5 text-emerald-400" />
                 </div>
                 <div className="space-y-1">
-                  <div className="font-bold text-slate-800 dark:text-slate-200 text-xs">AgriTech Digital Infrastructure</div>
+                  <div className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                    AgriTech Digital Infrastructure
+                  </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Developed and maintained for sustainable digital agricultural infrastructure across Bagmati Province, Nepal.
+                    Developed and maintained for sustainable digital
+                    agricultural infrastructure across Bagmati Province, Nepal.
                   </p>
                 </div>
               </div>
             </div>
-
           </div>
 
-          {/* Bottom Bar */}
           <div className="pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-400">
             <p>&copy; 2026 AgriTech Initiative &bull; All Rights Reserved.</p>
             <div className="flex items-center space-x-4">
-              <a href="#privacy" onClick={(e) => e.preventDefault()} className="hover:underline">Privacy Policy</a>
+              <a
+                href="#privacy"
+                onClick={(e) => e.preventDefault()}
+                className="hover:underline"
+              >
+                Privacy Policy
+              </a>
               <span>&bull;</span>
-              <a href="#terms" onClick={(e) => e.preventDefault()} className="hover:underline">Terms of Service</a>
+              <a
+                href="#terms"
+                onClick={(e) => e.preventDefault()}
+                className="hover:underline"
+              >
+                Terms of Service
+              </a>
               <span>&bull;</span>
               <span>Kathmandu, Nepal</span>
             </div>
           </div>
-
         </div>
       </footer>
 
-      {/* Platform Feedback & Feature Requests Modal */}
+      {/* Force Password Change Modal Interceptor */}
+      {user && user.is_first_login && (
+        <ForcePasswordChangeModal
+          token={token}
+          onPasswordChanged={() => {
+            const updatedUser = { ...user, is_first_login: false };
+            setUser(updatedUser);
+            localStorage.setItem("agritech_user", JSON.stringify(updatedUser));
+          }}
+        />
+      )}
+
       <PlatformFeedbackModal
         isOpen={isFeedbackModalOpen}
         onClose={() => setIsFeedbackModalOpen(false)}
@@ -661,7 +739,6 @@ export default function App() {
         token={token}
       />
 
-      {/* Profile Dashboard Modal */}
       {user && (
         <ProfileDashboardModal
           isOpen={isProfileDashboardOpen}
@@ -672,14 +749,12 @@ export default function App() {
         />
       )}
 
-      {/* Global Shopping Cart Drawer Modal */}
       <CartDrawerModal
         user={user}
         token={token}
         onNavigateToOrders={() => setActivePortal("b2b_hub")}
       />
 
-      {/* Support Ticket Center Modal */}
       {user && (
         <SupportTicketCenterModal
           isOpen={isSupportModalOpen}
@@ -689,20 +764,17 @@ export default function App() {
         />
       )}
 
-      {/* Settings & Alert Preferences Modal */}
       <SettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         user={user}
       />
 
-      {/* Community Reviews & Ratings Modal */}
       <ReviewsRatingsModal
         isOpen={isReviewsModalOpen}
         onClose={() => setIsReviewsModalOpen(false)}
         user={user}
       />
-
     </div>
   );
 }

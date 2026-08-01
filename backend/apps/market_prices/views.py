@@ -66,3 +66,15 @@ class MarketPriceStatsView(APIView):
             'weekly_range': f"{round(min_val)}-{round(max_val)}",
             'volatility_nrs': round(max_val - min_val, 2),
         }, status=status.HTTP_200_OK)
+
+
+class MarketPriceAlertsView(APIView):
+    """
+    Returns active threshold price alerts for the market price view.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        # Return active alerts or an empty list to satisfy the frontend gracefully
+        # You can expand this logic once your PriceAlert model is fully wired
+        return Response([], status=status.HTTP_200_OK)

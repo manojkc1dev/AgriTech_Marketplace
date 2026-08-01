@@ -37,7 +37,7 @@ THIRD_PARTY_APPS = [
 
 # Local SaaS Apps
 LOCAL_APPS = [
-    'apps.common',
+    'apps.core',
     'apps.authentication',
     'apps.users',
     'apps.categories',
@@ -69,7 +69,7 @@ LOCAL_APPS = [
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # Must be near the top for CORS
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -154,6 +154,7 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    "http://localhost:3000",
 ]
 
 

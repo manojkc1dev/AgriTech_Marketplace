@@ -1,9 +1,34 @@
 import React, { useState, useEffect } from "react";
-import { User, DemandPost, DemandBid, LogisticsDispatch, Invoice, InstitutionalSubscription } from "../types";
-import { 
-  Building2, Truck, FileText, Scale, ShieldCheck, History, Plus, CheckCircle2, 
-  Clock, AlertCircle, RefreshCw, Send, DollarSign, Calendar, MapPin, Thermometer,
-  ShieldAlert, Printer, ArrowRight, ChevronRight, UserCheck
+import {
+  User,
+  DemandPost,
+  DemandBid,
+  LogisticsDispatch,
+  Invoice,
+  InstitutionalSubscription,
+} from "../types";
+import {
+  Building2,
+  Truck,
+  FileText,
+  Scale,
+  ShieldCheck,
+  History,
+  Plus,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  RefreshCw,
+  Send,
+  DollarSign,
+  Calendar,
+  MapPin,
+  Thermometer,
+  ShieldAlert,
+  Printer,
+  ArrowRight,
+  ChevronRight,
+  UserCheck,
 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import VatInvoiceModal from "./VatInvoiceModal";
@@ -15,15 +40,22 @@ interface B2bMarketplaceHubProps {
   token: string;
 }
 
-export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProps) {
+export default function B2bMarketplaceHub({
+  user,
+  token,
+}: B2bMarketplaceHubProps) {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<"forward_contracts" | "logistics" | "subscriptions" | "invoices">("forward_contracts");
+  const [activeTab, setActiveTab] = useState<
+    "forward_contracts" | "logistics" | "subscriptions" | "invoices"
+  >("forward_contracts");
 
   // Data States
   const [demands, setDemands] = useState<DemandPost[]>([]);
   const [bids, setBids] = useState<DemandBid[]>([]);
   const [dispatches, setDispatches] = useState<LogisticsDispatch[]>([]);
-  const [subscriptions, setSubscriptions] = useState<InstitutionalSubscription[]>([]);
+  const [subscriptions, setSubscriptions] = useState<
+    InstitutionalSubscription[]
+  >([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -34,7 +66,8 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
 
   // New Bid State for selected demand
-  const [selectedDemandForBid, setSelectedDemandForBid] = useState<DemandPost | null>(null);
+  const [selectedDemandForBid, setSelectedDemandForBid] =
+    useState<DemandPost | null>(null);
   const [bidPrice, setBidPrice] = useState("");
   const [bidDeliveryDays, setBidDeliveryDays] = useState("20");
   const [bidNotes, setBidNotes] = useState("");
@@ -55,10 +88,18 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
     setLoading(true);
     try {
       const [demandsRes, dispatchesRes, subsRes, invsRes] = await Promise.all([
-        fetch("/api/demands", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/logistics", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/subscriptions", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/invoices", { headers: { Authorization: `Bearer ${token}` } })
+        fetch("http://127.0.0.1:8000/api/demands", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("http://127.0.0.1:8000/api/logistics", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("http://127.0.0.1:8000/api/subscriptions", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("http://127.0.0.1:8000/api/invoices", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
 
       if (demandsRes.ok) setDemands(await demandsRes.json());
@@ -79,9 +120,12 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
 
   const fetchBidsForDemand = async (demandId: string) => {
     try {
-      const res = await fetch(`/api/demands/${demandId}/bids`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/demands/${demandId}/bids`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (res.ok) {
         setBids(await res.json());
       }
@@ -104,18 +148,21 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
     }
 
     try {
-      const res = await fetch(`/api/demands/${selectedDemandForBid.id}/bids`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/demands/${selectedDemandForBid.id}/bids`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            bidPricePerUnit: parseFloat(bidPrice),
+            deliveryDaysRequired: parseInt(bidDeliveryDays),
+            notes: bidNotes,
+          }),
         },
-        body: JSON.stringify({
-          bidPricePerUnit: parseFloat(bidPrice),
-          deliveryDaysRequired: parseInt(bidDeliveryDays),
-          notes: bidNotes
-        })
-      });
+      );
 
       if (res.ok) {
         setBidMsg("Binding Forward Contract Bid submitted successfully!");
@@ -132,11 +179,11 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
   const handleCreateSubscription = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/subscriptions", {
+      const res = await fetch("http://127.0.0.1:8000/api/subscriptions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           buyerOrganization: user.fullName + " Institutional Procurement",
@@ -145,8 +192,8 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
           unit: "KG",
           agreedPricePerUnit: parseFloat(subPrice),
           deliveryDay: subDay,
-          district: user.district || "Kathmandu"
-        })
+          district: user.district || "Kathmandu",
+        }),
       });
 
       if (res.ok) {
@@ -161,7 +208,6 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
 
   return (
     <div className="space-y-6">
-      
       {/* Top Banner & Quick Toolbars */}
       <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -174,7 +220,9 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
               Bulk Forward Contracts & Cold-Chain Logistics
             </h2>
             <p className="text-xs text-emerald-100/80 max-w-xl">
-              Contract wholesale requirements, monitor Prithvi Highway cold-chain trucks, and generate VAT-compliant split-settlement receipts.
+              Contract wholesale requirements, monitor Prithvi Highway
+              cold-chain trucks, and generate VAT-compliant split-settlement
+              receipts.
             </p>
           </div>
 
@@ -252,12 +300,13 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
       {/* TAB CONTENT 1: FORWARD CONTRACTS & BIDS */}
       {activeTab === "forward_contracts" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
           {/* Demands List */}
           <div className="lg:col-span-2 space-y-4">
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between">
               <span>Bulk Institutional Requirements (थोक माँग)</span>
-              <span className="text-xs font-normal text-slate-500">{demands.length} Posts</span>
+              <span className="text-xs font-normal text-slate-500">
+                {demands.length} Posts
+              </span>
             </h3>
 
             {demands.length === 0 ? (
@@ -290,11 +339,22 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
                     </h4>
 
                     <div className="mt-2 text-xs space-y-1 text-slate-600 dark:text-slate-300 font-medium">
-                      <p>Quantity Required: <span className="font-bold font-mono text-slate-900 dark:text-slate-100">{demand.quantityRequired} {demand.unit}</span></p>
-                      <p>Target Price Ceiling: <span className="font-bold font-mono text-emerald-800 dark:text-emerald-300">NRs. {demand.targetPricePerUnit} / {demand.unit}</span></p>
+                      <p>
+                        Quantity Required:{" "}
+                        <span className="font-bold font-mono text-slate-900 dark:text-slate-100">
+                          {demand.quantityRequired} {demand.unit}
+                        </span>
+                      </p>
+                      <p>
+                        Target Price Ceiling:{" "}
+                        <span className="font-bold font-mono text-emerald-800 dark:text-emerald-300">
+                          NRs. {demand.targetPricePerUnit} / {demand.unit}
+                        </span>
+                      </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center">
                         <MapPin className="w-3 h-3 mr-1 text-slate-400" />
-                        Buyer: {demand.buyerName} ({demand.district || "Kathmandu"})
+                        Buyer: {demand.buyerName} (
+                        {demand.district || "Kathmandu"})
                       </p>
                     </div>
 
@@ -317,7 +377,9 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
                     Forward Contract Bidding
                   </span>
                   <h4 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                    {selectedDemandForBid.crop} ({selectedDemandForBid.quantityRequired} {selectedDemandForBid.unit})
+                    {selectedDemandForBid.crop} (
+                    {selectedDemandForBid.quantityRequired}{" "}
+                    {selectedDemandForBid.unit})
                   </h4>
                 </div>
 
@@ -325,7 +387,9 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
                 <div className="space-y-2">
                   <h5 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
                     <span>Submitted Bids</span>
-                    <span className="font-mono text-slate-400">{bids.length} Received</span>
+                    <span className="font-mono text-slate-400">
+                      {bids.length} Received
+                    </span>
                   </h5>
 
                   {bids.length === 0 ? (
@@ -334,13 +398,21 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
                     </div>
                   ) : (
                     bids.map((b) => (
-                      <div key={b.id} className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl text-xs border border-slate-200/80 dark:border-slate-750 space-y-1">
+                      <div
+                        key={b.id}
+                        className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl text-xs border border-slate-200/80 dark:border-slate-750 space-y-1"
+                      >
                         <div className="flex justify-between items-center font-bold">
-                          <span className="text-slate-800 dark:text-slate-200">{b.farmerName} ({b.farmerDistrict})</span>
-                          <span className="font-mono text-emerald-800 dark:text-emerald-300">NRs. {b.bidPricePerUnit}</span>
+                          <span className="text-slate-800 dark:text-slate-200">
+                            {b.farmerName} ({b.farmerDistrict})
+                          </span>
+                          <span className="font-mono text-emerald-800 dark:text-emerald-300">
+                            NRs. {b.bidPricePerUnit}
+                          </span>
                         </div>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                          Delivery Lead Time: {b.deliveryDaysRequired} days | Escrow Locked: NRs. {b.depositLocked}
+                          Delivery Lead Time: {b.deliveryDaysRequired} days |
+                          Escrow Locked: NRs. {b.depositLocked}
                         </p>
                         {b.notes && (
                           <p className="text-[11px] text-slate-600 dark:text-slate-300 italic">
@@ -353,7 +425,10 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
                 </div>
 
                 {/* Submit Bid Form */}
-                <form onSubmit={handleSubmitBid} className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+                <form
+                  onSubmit={handleSubmitBid}
+                  className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800"
+                >
                   <h5 className="text-xs font-bold text-slate-800 dark:text-slate-200">
                     Submit Binding Farmer/Cooperative Bid
                   </h5>
@@ -413,11 +488,11 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
               </>
             ) : (
               <div className="py-12 text-center text-xs text-slate-400">
-                Select a demand requirement post on the left to view bids or place a forward contract proposal.
+                Select a demand requirement post on the left to view bids or
+                place a forward contract proposal.
               </div>
             )}
           </div>
-
         </div>
       )}
 
@@ -425,14 +500,20 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
       {activeTab === "logistics" && (
         <div className="space-y-4">
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between">
-            <span>Cold-Chain Transit Vehicles & Highway Dispatch (राजमार्ग ढुवानी)</span>
-            <span className="text-xs font-normal text-slate-500">{dispatches.length} Vehicles In-Transit</span>
+            <span>
+              Cold-Chain Transit Vehicles & Highway Dispatch (राजमार्ग ढुवानी)
+            </span>
+            <span className="text-xs font-normal text-slate-500">
+              {dispatches.length} Vehicles In-Transit
+            </span>
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {dispatches.map((disp) => (
-              <div key={disp.id} className="p-5 bg-white dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4 shadow-xs">
-                
+              <div
+                key={disp.id}
+                className="p-5 bg-white dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4 shadow-xs"
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <div className="p-2 bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 rounded-xl">
@@ -449,20 +530,28 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
                   </div>
 
                   <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
-                    {disp.status.replace('_', ' ').toUpperCase()}
+                    {disp.status.replace("_", " ").toUpperCase()}
                   </span>
                 </div>
 
                 {/* Route & Temperature Gauge */}
                 <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-xs">
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400">Transit Corridor</span>
-                    <p className="font-bold text-slate-800 dark:text-slate-200">{disp.route}</p>
-                    <p className="text-[11px] text-slate-500">{disp.originDistrict} → {disp.destinationDistrict}</p>
+                    <span className="text-[10px] uppercase font-bold text-slate-400">
+                      Transit Corridor
+                    </span>
+                    <p className="font-bold text-slate-800 dark:text-slate-200">
+                      {disp.route}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      {disp.originDistrict} → {disp.destinationDistrict}
+                    </p>
                   </div>
 
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400">Cold Chain Monitor</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-400">
+                      Cold Chain Monitor
+                    </span>
                     <p className="font-bold font-mono text-sky-600 dark:text-sky-300 flex items-center mt-0.5">
                       <Thermometer className="w-4 h-4 mr-1 text-sky-500" />
                       {disp.coldChainTempC}°C (Optimal)
@@ -474,14 +563,20 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
                 <div className="text-xs space-y-1 text-slate-600 dark:text-slate-300">
                   <p className="flex items-center">
                     <MapPin className="w-3.5 h-3.5 mr-1.5 text-emerald-600 shrink-0" />
-                    <span>Current Checkpoint: <strong className="text-slate-900 dark:text-slate-100">{disp.currentCheckpoint}</strong></span>
+                    <span>
+                      Current Checkpoint:{" "}
+                      <strong className="text-slate-900 dark:text-slate-100">
+                        {disp.currentCheckpoint}
+                      </strong>
+                    </span>
                   </p>
                   <p className="flex items-center text-slate-500">
                     <UserCheck className="w-3.5 h-3.5 mr-1.5 text-slate-400 shrink-0" />
-                    <span>Driver: {disp.driverName} ({disp.driverPhone})</span>
+                    <span>
+                      Driver: {disp.driverName} ({disp.driverPhone})
+                    </span>
                   </p>
                 </div>
-
               </div>
             ))}
           </div>
@@ -491,7 +586,6 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
       {/* TAB CONTENT 3: INSTITUTIONAL SUBSCRIPTIONS */}
       {activeTab === "subscriptions" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
           {/* Subscriptions List */}
           <div className="lg:col-span-2 space-y-4">
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -500,7 +594,10 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
 
             <div className="grid grid-cols-1 gap-4">
               {subscriptions.map((sub) => (
-                <div key={sub.id} className="p-4 bg-white dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div
+                  key={sub.id}
+                  className="p-4 bg-white dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between"
+                >
                   <div className="space-y-1 text-xs">
                     <div className="flex items-center space-x-2">
                       <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[10px]">
@@ -511,10 +608,14 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
                       </h4>
                     </div>
                     <p className="text-slate-600 dark:text-slate-300">
-                      Organization: <strong className="text-slate-800 dark:text-slate-200">{sub.buyerOrganization}</strong>
+                      Organization:{" "}
+                      <strong className="text-slate-800 dark:text-slate-200">
+                        {sub.buyerOrganization}
+                      </strong>
                     </p>
                     <p className="text-slate-500 font-mono">
-                      Agreed Price: NRs. {sub.agreedPricePerUnit} / {sub.unit} | Next Delivery: {sub.nextDeliveryDate}
+                      Agreed Price: NRs. {sub.agreedPricePerUnit} / {sub.unit} |
+                      Next Delivery: {sub.nextDeliveryDate}
                     </p>
                   </div>
 
@@ -553,7 +654,9 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
                   <option value="Potato (Aalu)">Potato (Aalu)</option>
                   <option value="Onion (Pyaj)">Onion (Pyaj)</option>
                   <option value="Cabbage (Banda)">Cabbage (Banda)</option>
-                  <option value="Cauliflower (Kauli)">Cauliflower (Kauli)</option>
+                  <option value="Cauliflower (Kauli)">
+                    Cauliflower (Kauli)
+                  </option>
                 </select>
               </div>
 
@@ -604,7 +707,6 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
               </button>
             </form>
           </div>
-
         </div>
       )}
 
@@ -612,13 +714,20 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
       {activeTab === "invoices" && (
         <div className="space-y-4">
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between">
-            <span>Official VAT Tax Invoices & Settlement Receipts (कर बिजक)</span>
-            <span className="text-xs font-normal text-slate-500">{invoices.length} Issued</span>
+            <span>
+              Official VAT Tax Invoices & Settlement Receipts (कर बिजक)
+            </span>
+            <span className="text-xs font-normal text-slate-500">
+              {invoices.length} Issued
+            </span>
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {invoices.map((inv) => (
-              <div key={inv.id} className="p-4 bg-white dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+              <div
+                key={inv.id}
+                className="p-4 bg-white dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3"
+              >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400">
                     {inv.invoiceNumber}
@@ -639,7 +748,9 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
 
                 <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs">
                   <div>
-                    <span className="text-slate-400 text-[10px]">Total (incl 13% VAT):</span>
+                    <span className="text-slate-400 text-[10px]">
+                      Total (incl 13% VAT):
+                    </span>
                     <p className="font-mono font-bold text-slate-900 dark:text-slate-100">
                       NRs. {inv.totalAmount.toLocaleString()}
                     </p>
@@ -681,7 +792,6 @@ export default function B2bMarketplaceHub({ user, token }: B2bMarketplaceHubProp
         onClose={() => setIsAuditModalOpen(false)}
         token={token}
       />
-
     </div>
   );
 }

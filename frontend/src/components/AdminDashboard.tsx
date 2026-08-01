@@ -1,7 +1,40 @@
 import React, { useState, useEffect } from "react";
 import { User, MarketPrice, PlatformFeedback } from "../types";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Plus, Check, RefreshCw, AlertCircle, TrendingUp, Calendar, MapPin, UserCheck, BarChart3, PieChartIcon, MessageSquare, Lightbulb, AlertTriangle, Sparkles, Trash2, Edit3, ShieldCheck, XCircle, Eye, FileText, Building2, X } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import {
+  Check,
+  RefreshCw,
+  AlertCircle,
+  MapPin,
+  UserCheck,
+  BarChart3,
+  PieChartIcon,
+  MessageSquare,
+  Lightbulb,
+  AlertTriangle,
+  Sparkles,
+  Trash2,
+  Edit3,
+  ShieldCheck,
+  XCircle,
+  Eye,
+  FileText,
+  Building2,
+  X,
+  UserPlus,
+} from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 
 interface AdminProps {
@@ -24,30 +57,37 @@ export default function AdminDashboard({ user, token }: AdminProps) {
   const [analytics, setAnalytics] = useState<CropAnalytic[]>([]);
   const [feedbackItems, setFeedbackItems] = useState<PlatformFeedback[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"prices" | "verify" | "analytics" | "feedback">("prices");
+  const [activeTab, setActiveTab] = useState<
+    "verify" | "create-user" | "analytics" | "feedback"
+  >("verify");
 
   // Feedback admin controls state
-  const [editingFeedbackId, setEditingFeedbackId] = useState<string | null>(null);
+  const [editingFeedbackId, setEditingFeedbackId] = useState<string | null>(
+    null,
+  );
   const [newStatus, setNewStatus] = useState<string>("");
   const [adminNotesInput, setAdminNotesInput] = useState<string>("");
   const [updatingFeedback, setUpdatingFeedback] = useState(false);
 
-  // Manual Price Entry form state
-  const [crop, setCrop] = useState("Tomato (Golbheda)");
-  const [region, setRegion] = useState("Kathmandu");
-  const [price, setPrice] = useState("");
-  const [unit] = useState("KG");
-  const [market, setMarket] = useState("Kalimati Market");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [formError, setFormError] = useState("");
-  const [formSuccess, setFormSuccess] = useState("");
+  // Create User form state
+  const [newUsername, setNewUsername] = useState("");
+  const [newFullName, setNewFullName] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newRole, setNewRole] = useState<
+    "farmer" | "buyer" | "cooperative" | "admin"
+  >("farmer");
+  const [newDistrict, setNewDistrict] = useState("Kathmandu");
+  const [newPhone, setNewPhone] = useState("");
+  const [createUserError, setCreateUserError] = useState("");
+  const [createUserSuccess, setCreateUserSuccess] = useState("");
+  const [creatingUser, setCreatingUser] = useState(false);
 
   const fetchAdminData = async () => {
     setLoading(true);
     try {
       // 1. Fetch pending users
       const pendingRes = await fetch("/api/admin/users/pending-verification", {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (pendingRes.ok) {
         setPendingUsers(await pendingRes.json());
@@ -61,7 +101,7 @@ export default function AdminDashboard({ user, token }: AdminProps) {
 
       // 3. Fetch platform feedback items
       const feedbackRes = await fetch("/api/feedback", {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (feedbackRes.ok) {
         setFeedbackItems(await feedbackRes.json());
@@ -77,57 +117,70 @@ export default function AdminDashboard({ user, token }: AdminProps) {
     fetchAdminData();
   }, [token, activeTab]);
 
-  const handleManualPriceEntry = async (e: React.FormEvent) => {
+  const handleAdminCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError("");
-    setFormSuccess("");
+    setCreateUserError("");
+    setCreateUserSuccess("");
 
-    if (!price || Number(price) <= 0) {
-      setFormError("Please enter a valid positive wholesale price.");
+    if (!newUsername.trim() || !newFullName.trim() || !newPassword.trim()) {
+      setCreateUserError("Please fill out username, full name, and password.");
       return;
     }
 
+    setCreatingUser(true);
     try {
-      const res = await fetch("/api/prices", {
+      const res = await fetch("/api/admin/users/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          crop,
-          region,
-          price_per_unit: Number(price),
-          unit,
-          date,
-          source_market: market
-        })
+          username: newUsername.trim(),
+          fullName: newFullName.trim(),
+          password: newPassword.trim(),
+          role: newRole,
+          district: newDistrict,
+          phone: newPhone.trim(),
+        }),
       });
 
       if (res.ok) {
-        setFormSuccess(`Daily price index logged for ${crop} in ${region}!`);
-        setPrice("");
+        setCreateUserSuccess(
+          `Successfully provisioned new ${newRole} account for ${newFullName}!`,
+        );
+        setNewUsername("");
+        setNewFullName("");
+        setNewPassword("");
+        setNewPhone("");
         fetchAdminData();
       } else {
         const err = await res.json();
-        setFormError(err.error || "Failed to log daily price.");
+        setCreateUserError(err.error || "Failed to create user account.");
       }
     } catch (e) {
-      setFormError("Network communication error.");
+      setCreateUserError("Network communication error while creating user.");
+    } finally {
+      setCreatingUser(false);
     }
   };
 
-  const [previewImage, setPreviewImage] = useState<{ title: string; url: string } | null>(null);
+  const [previewImage, setPreviewImage] = useState<{
+    title: string;
+    url: string;
+  } | null>(null);
 
   const handleVerifyUser = async (userId: string) => {
     try {
       const res = await fetch(`/api/admin/users/${userId}/verify`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
-        alert("User Citizenship & National Identity Card credentials approved and activated!");
+        alert(
+          "User Citizenship & National Identity Card credentials approved and activated!",
+        );
         fetchAdminData();
       } else {
         alert("Verification failed.");
@@ -138,17 +191,20 @@ export default function AdminDashboard({ user, token }: AdminProps) {
   };
 
   const handleRejectUser = async (userId: string) => {
-    const reason = prompt("Enter reason for rejecting verification (e.g. Image blurry, incomplete National ID):", "Document image was unclear or illegible.");
+    const reason = prompt(
+      "Enter reason for rejecting verification (e.g. Image blurry, incomplete National ID):",
+      "Document image was unclear or illegible.",
+    );
     if (reason === null) return;
 
     try {
       const res = await fetch(`/api/admin/users/${userId}/reject`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}` 
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ notes: reason })
+        body: JSON.stringify({ notes: reason }),
       });
 
       if (res.ok) {
@@ -170,12 +226,12 @@ export default function AdminDashboard({ user, token }: AdminProps) {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           status: newStatus,
-          adminNotes: adminNotesInput.trim()
-        })
+          adminNotes: adminNotesInput.trim(),
+        }),
       });
 
       if (res.ok) {
@@ -194,11 +250,12 @@ export default function AdminDashboard({ user, token }: AdminProps) {
   };
 
   const handleDeleteFeedback = async (feedbackId: string) => {
-    if (!confirm("Are you sure you want to delete this feedback submission?")) return;
+    if (!confirm("Are you sure you want to delete this feedback submission?"))
+      return;
     try {
       const res = await fetch(`/api/feedback/${feedbackId}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
@@ -211,32 +268,17 @@ export default function AdminDashboard({ user, token }: AdminProps) {
     }
   };
 
-  const cropOptions = ["Potato (Alu)", "Tomato (Golbheda)", "Cauliflower (Kauli)", "Ginger (Aduwa)", "Onion (Pyaj)"];
-  const regionOptions = ["Kathmandu", "Hill", "Terai"];
-  const marketOptions = ["Kalimati Market", "Tokha Sub-Market", "Itahari Wholesale", "Dhading local Mandi", "Makwanpur local Mandi"];
-
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
-  const pendingFeedbackCount = feedbackItems.filter(f => f.status === "pending").length;
+  const pendingFeedbackCount = feedbackItems.filter(
+    (f) => f.status === "pending",
+  ).length;
 
   return (
     <div className="space-y-6">
       {/* Navigation Tabs Bar */}
       <div className="border-b border-slate-200/90 dark:border-slate-800 pb-3 pt-1">
         <div className="flex items-center space-x-2.5 sm:space-x-3.5 overflow-x-auto no-scrollbar py-1">
-          {/* Price Entry Tab */}
-          <button
-            onClick={() => setActiveTab("prices")}
-            className={`px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold flex items-center space-x-2 transition cursor-pointer shrink-0 ${
-              activeTab === "prices"
-                ? "bg-emerald-600 dark:bg-emerald-600 text-white shadow-sm"
-                : "bg-slate-100/90 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
-            }`}
-          >
-            <TrendingUp className={`w-4 h-4 ${activeTab === "prices" ? "text-white" : "text-slate-600 dark:text-slate-400"}`} />
-            <span>{t("Price Entry")}</span>
-          </button>
-
           {/* Verification Tab */}
           <button
             onClick={() => setActiveTab("verify")}
@@ -246,11 +288,30 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                 : "bg-slate-100/90 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
             }`}
           >
-            <UserCheck className={`w-4 h-4 ${activeTab === "verify" ? "text-white" : "text-slate-600 dark:text-slate-400"}`} />
-            <span>{t("Verification")} ({pendingUsers.length})</span>
+            <UserCheck
+              className={`w-4 h-4 ${activeTab === "verify" ? "text-white" : "text-slate-600 dark:text-slate-400"}`}
+            />
+            <span>
+              {t("Verification")} ({pendingUsers.length})
+            </span>
             {pendingUsers.length > 0 && (
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse ml-0.5"></span>
             )}
+          </button>
+
+          {/* Create User Tab */}
+          <button
+            onClick={() => setActiveTab("create-user")}
+            className={`px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold flex items-center space-x-2 transition cursor-pointer shrink-0 ${
+              activeTab === "create-user"
+                ? "bg-emerald-600 dark:bg-emerald-600 text-white shadow-sm"
+                : "bg-slate-100/90 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+            }`}
+          >
+            <UserPlus
+              className={`w-4 h-4 ${activeTab === "create-user" ? "text-white" : "text-slate-600 dark:text-slate-400"}`}
+            />
+            <span>{t("Add Users")}</span>
           </button>
 
           {/* Market Analysis Tab */}
@@ -262,7 +323,9 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                 : "bg-slate-100/90 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
             }`}
           >
-            <BarChart3 className={`w-4 h-4 ${activeTab === "analytics" ? "text-white" : "text-slate-600 dark:text-slate-400"}`} />
+            <BarChart3
+              className={`w-4 h-4 ${activeTab === "analytics" ? "text-white" : "text-slate-600 dark:text-slate-400"}`}
+            />
             <span>{t("Market Analysis")}</span>
           </button>
 
@@ -275,8 +338,12 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                 : "bg-slate-100/90 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
             }`}
           >
-            <MessageSquare className={`w-4 h-4 ${activeTab === "feedback" ? "text-white" : "text-slate-600 dark:text-slate-400"}`} />
-            <span>{t("Feedback")} ({feedbackItems.length})</span>
+            <MessageSquare
+              className={`w-4 h-4 ${activeTab === "feedback" ? "text-white" : "text-slate-600 dark:text-slate-400"}`}
+            />
+            <span>
+              {t("Feedback")} ({feedbackItems.length})
+            </span>
             {pendingFeedbackCount > 0 && (
               <span className="ml-1 px-1.5 py-0.25 bg-amber-500 text-white rounded-full text-[10px] font-bold">
                 {pendingFeedbackCount}
@@ -285,125 +352,6 @@ export default function AdminDashboard({ user, token }: AdminProps) {
           </button>
         </div>
       </div>
-
-      {/* Tab: Price Entry */}
-      {activeTab === "prices" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Daily Entry Form */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm h-fit">
-            <h3 className="font-bold font-display text-slate-800 text-sm tracking-wide uppercase flex items-center space-x-1.5 border-b border-slate-200 pb-3 mb-4">
-              <Plus className="w-4 h-4 text-emerald-600" />
-              <span>Log Daily Crop Indices</span>
-            </h3>
-
-            <form onSubmit={handleManualPriceEntry} className="space-y-4">
-              {formError && <div className="text-xs text-rose-600 bg-rose-50 p-2 rounded-lg border border-rose-100">{formError}</div>}
-              {formSuccess && <div className="text-xs text-emerald-600 bg-emerald-50 p-2 rounded-lg border border-emerald-100">{formSuccess}</div>}
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Crop Name</label>
-                <select
-                  value={crop}
-                  onChange={(e) => setCrop(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none rounded-xl py-2 px-3 text-sm text-slate-700 transition"
-                >
-                  {cropOptions.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Region</label>
-                  <select
-                    value={region}
-                    onChange={(e) => setRegion(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none rounded-xl py-2 px-3 text-sm text-slate-700 transition"
-                  >
-                    {regionOptions.map(r => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Rate (NRs/KG)</label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 72"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none rounded-xl py-2 px-3 text-sm text-slate-700 transition"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Source Market Origin</label>
-                <select
-                  value={market}
-                  onChange={(e) => setMarket(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none rounded-xl py-2 px-3 text-sm text-slate-700 transition"
-                >
-                  {marketOptions.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Logging Date</label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none rounded-xl py-2 px-3 text-sm text-slate-700 transition"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-xs uppercase tracking-wider transition duration-150 shadow-sm"
-              >
-                Publish Wholesale Price
-              </button>
-            </form>
-          </div>
-
-          {/* Quick Guide */}
-          <div className="lg:col-span-2 bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col justify-between shadow-sm">
-            <div className="space-y-4">
-              <h3 className="font-bold font-display text-slate-800 text-sm tracking-wide uppercase flex items-center space-x-1.5 pb-2 border-b border-slate-200">
-                <Calendar className="w-4 h-4 text-emerald-600" />
-                <span>Light Code Internal Entry Guild</span>
-              </h3>
-              
-              <p className="text-xs text-slate-600 leading-relaxed">
-                As the authorized administrative lead, you are responsible for updating daily market price indexes. 
-                These values immediately populate the <strong>Price Directory Trend Visualizers</strong>, allowing regional co-ops 
-                and smallholder farmers to list and price their harvests with maximum leverage.
-              </p>
-
-              <div className="border-l-4 border-emerald-500 pl-3 py-1 space-y-1.5 text-xs text-slate-500 bg-white p-3 rounded-r-xl border border-slate-200">
-                <p>&bull; <strong>Kathmandu Index</strong>: Collected from Kalimati wholesale yard.</p>
-                <p>&bull; <strong>Hill Index</strong>: Collected from Dhading Besi and Makwanpur local Mandis.</p>
-                <p>&bull; <strong>Terai Index</strong>: Collected from Itahari and Birgunj bulk yards.</p>
-              </div>
-            </div>
-
-            <div className="mt-8 bg-white border border-slate-200 p-4 rounded-xl flex items-center justify-between shadow-inner">
-              <span className="text-[10px] text-slate-400 font-mono">AUTHORIZED SESSION ROLE: admin</span>
-              <button 
-                onClick={fetchAdminData}
-                className="text-emerald-700 hover:text-emerald-800 font-bold text-xs flex items-center space-x-1 transition duration-150"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Reload Queue</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Tab: Verification Queue */}
       {activeTab === "verify" && (
@@ -414,7 +362,10 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                 <UserCheck className="w-4 h-4 text-emerald-600" />
                 <span>Super Admin KYC Verification Queue</span>
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">Mandatory verification of Citizenship Cards & National Identity Cards (NIN) for Buyers and Farmers</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Mandatory verification of Citizenship Cards & National Identity
+                Cards (NIN) for Buyers and Farmers
+              </p>
             </div>
             <span className="bg-amber-100 text-amber-800 border border-amber-200 font-bold px-3 py-1 rounded-full text-[10px] tracking-wider uppercase font-mono">
               {pendingUsers.length} Pending Approvals
@@ -428,23 +379,56 @@ export default function AdminDashboard({ user, token }: AdminProps) {
               </div>
             ) : (
               pendingUsers.map((u) => (
-                <div key={u.id} className="p-5 hover:bg-slate-50/50 transition duration-150 space-y-4">
+                <div
+                  key={u.id}
+                  className="p-5 hover:bg-slate-50/50 transition duration-150 space-y-4"
+                >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
-                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase font-mono ${
-                          u.role === 'farmer' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-blue-100 text-blue-800 border border-blue-200'
-                        }`}>
+                        <span
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase font-mono ${
+                            u.role === "farmer"
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              : "bg-blue-100 text-blue-800 border border-blue-200"
+                          }`}
+                        >
                           {u.role.toUpperCase()}
                         </span>
-                        <h4 className="font-bold text-slate-900 text-base font-display">{u.fullName}</h4>
+                        <h4 className="font-bold text-slate-900 text-base font-display">
+                          {u.fullName}
+                        </h4>
                       </div>
-                      
+
                       <div className="text-xs text-slate-500 flex flex-wrap gap-x-4 gap-y-1 font-sans">
-                        <span>District: <strong className="text-slate-800">{u.district}</strong></span>
-                        <span>Phone: <strong className="text-slate-800 font-mono">{u.phone}</strong></span>
-                        <span>Username: <strong className="font-mono text-slate-700">{u.username}</strong></span>
-                        <span>Submitted: <strong className="font-mono text-slate-700">{u.verificationSubmittedAt ? new Date(u.verificationSubmittedAt).toLocaleDateString() : 'Pending Upload'}</strong></span>
+                        <span>
+                          District:{" "}
+                          <strong className="text-slate-800">
+                            {u.district}
+                          </strong>
+                        </span>
+                        <span>
+                          Phone:{" "}
+                          <strong className="text-slate-800 font-mono">
+                            {u.phone}
+                          </strong>
+                        </span>
+                        <span>
+                          Username:{" "}
+                          <strong className="font-mono text-slate-700">
+                            {u.username}
+                          </strong>
+                        </span>
+                        <span>
+                          Submitted:{" "}
+                          <strong className="font-mono text-slate-700">
+                            {u.verificationSubmittedAt
+                              ? new Date(
+                                  u.verificationSubmittedAt,
+                                ).toLocaleDateString()
+                              : "Pending Upload"}
+                          </strong>
+                        </span>
                       </div>
                     </div>
 
@@ -470,7 +454,6 @@ export default function AdminDashboard({ user, token }: AdminProps) {
 
                   {/* Document Scans Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
-                    
                     {/* Citizenship Card */}
                     <div className="bg-white p-3 rounded-lg border border-slate-200 flex flex-col justify-between space-y-2">
                       <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
@@ -492,7 +475,12 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                           />
                           <button
                             type="button"
-                            onClick={() => setPreviewImage({ title: `Citizenship Card - ${u.fullName}`, url: u.citizenshipDocUrl! })}
+                            onClick={() =>
+                              setPreviewImage({
+                                title: `Citizenship Card - ${u.fullName}`,
+                                url: u.citizenshipDocUrl!,
+                              })
+                            }
                             className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center space-x-1 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 transition"
                           >
                             <Eye className="w-3.5 h-3.5" />
@@ -500,7 +488,9 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                           </button>
                         </div>
                       ) : (
-                        <p className="text-xs text-rose-500 italic py-2">No Citizenship Document Uploaded</p>
+                        <p className="text-xs text-rose-500 italic py-2">
+                          No Citizenship Document Uploaded
+                        </p>
                       )}
                     </div>
 
@@ -525,7 +515,12 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                           />
                           <button
                             type="button"
-                            onClick={() => setPreviewImage({ title: `National Identity Card - ${u.fullName}`, url: u.nationalIdDocUrl! })}
+                            onClick={() =>
+                              setPreviewImage({
+                                title: `National Identity Card - ${u.fullName}`,
+                                url: u.nationalIdDocUrl!,
+                              })
+                            }
                             className="text-xs font-semibold text-blue-700 hover:text-blue-800 flex items-center space-x-1 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 transition"
                           >
                             <Eye className="w-3.5 h-3.5" />
@@ -533,16 +528,143 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                           </button>
                         </div>
                       ) : (
-                        <p className="text-xs text-rose-500 italic py-2">No National Identity Card Uploaded</p>
+                        <p className="text-xs text-rose-500 italic py-2">
+                          No National Identity Card Uploaded
+                        </p>
                       )}
                     </div>
-
                   </div>
-
                 </div>
               ))
             )}
           </div>
+        </div>
+      )}
+
+      {/* Tab: Add User Account */}
+      {activeTab === "create-user" && (
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm max-w-2xl mx-auto">
+          <div className="border-b border-slate-200 pb-4 mb-5 flex items-center space-x-2">
+            <UserPlus className="w-5 h-5 text-emerald-600" />
+            <h3 className="font-bold font-display text-slate-800 text-base tracking-wide uppercase">
+              Provision New User Account (Farmer, Buyer, Cooperative)
+            </h3>
+          </div>
+
+          <form onSubmit={handleAdminCreateUser} className="space-y-4">
+            {createUserError && (
+              <div className="text-xs text-rose-600 bg-rose-50 p-3 rounded-xl border border-rose-100">
+                {createUserError}
+              </div>
+            )}
+            {createUserSuccess && (
+              <div className="text-xs text-emerald-600 bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                {createUserSuccess}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                  System Username ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. buyer_shyam or coop_himalayan"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none rounded-xl py-2 px-3 text-sm text-slate-700 font-mono transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Shyam Bahadur"
+                  value={newFullName}
+                  onChange={(e) => setNewFullName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none rounded-xl py-2 px-3 text-sm text-slate-700 transition"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                  Account Role Type
+                </label>
+                <select
+                  value={newRole}
+                  onChange={(e) => setNewRole(e.target.value as any)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none rounded-xl py-2 px-3 text-sm text-slate-700 transition font-semibold"
+                >
+                  <option value="farmer">Farmer (किसान)</option>
+                  <option value="buyer">Buyer / Merchant (खरीददार)</option>
+                  <option value="cooperative">
+                    Cooperative / Samiti (सहकारी)
+                  </option>
+                  <option value="admin">Super Admin (सुपर एडमिन)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                  Secure Password
+                </label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none rounded-xl py-2 px-3 text-sm text-slate-700 transition"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                  District Region
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Kathmandu"
+                  value={newDistrict}
+                  onChange={(e) => setNewDistrict(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none rounded-xl py-2 px-3 text-sm text-slate-700 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 9841000000"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none rounded-xl py-2 px-3 text-sm text-slate-700 font-mono transition"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={creatingUser}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider transition duration-150 shadow-sm mt-2 flex items-center justify-center space-x-2"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>
+                {creatingUser
+                  ? "Provisioning..."
+                  : `Create & Authorize ${newRole.toUpperCase()} Account`}
+              </span>
+            </button>
+          </form>
         </div>
       )}
 
@@ -559,22 +681,56 @@ export default function AdminDashboard({ user, token }: AdminProps) {
             <div className="h-64 mt-2">
               {analytics.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analytics} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="crop" stroke="#94a3b8" fontSize={10} tickLine={false} />
+                  <BarChart
+                    data={analytics}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 5 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#e2e8f0"
+                    />
+                    <XAxis
+                      dataKey="crop"
+                      stroke="#94a3b8"
+                      fontSize={10}
+                      tickLine={false}
+                    />
                     <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: "#0f172a", borderRadius: "12px", border: "none", color: "#f8fafc" }}
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#0f172a",
+                        borderRadius: "12px",
+                        border: "none",
+                        color: "#f8fafc",
+                      }}
                       itemStyle={{ fontSize: "11px" }}
                     />
                     <Legend wrapperStyle={{ fontSize: "10px" }} />
-                    <Bar dataKey="listingCount" name="Active Listings (Farmer Supply)" fill="#10b981" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="demandCount" name="B2B Demand Requests" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="orderCount" name="Closed Deals" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                    <Bar
+                      dataKey="listingCount"
+                      name="Active Listings (Farmer Supply)"
+                      fill="#10b981"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="demandCount"
+                      name="B2B Demand Requests"
+                      fill="#3b82f6"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="orderCount"
+                      name="Closed Deals"
+                      fill="#6366f1"
+                      radius={[4, 4, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-slate-400 text-xs">No analytics logs.</div>
+                <div className="h-full flex items-center justify-center text-slate-400 text-xs">
+                  No analytics logs.
+                </div>
               )}
             </div>
           </div>
@@ -599,10 +755,15 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                         outerRadius={65}
                         fill="#8884d8"
                         dataKey="avgPrice"
-                        label={({ name, percent }) => `${name} (${Math.round(percent * 100)}%)`}
+                        label={({ name, percent = 0 }) =>
+                          `${name} (${Math.round(percent * 100)}%)`
+                        }
                       >
                         {analytics.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
                         ))}
                       </Pie>
                       <Tooltip />
@@ -610,13 +771,19 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="h-full flex items-center justify-center text-slate-400 text-xs">No analytics logs.</div>
+                <div className="h-full flex items-center justify-center text-slate-400 text-xs">
+                  No analytics logs.
+                </div>
               )}
 
               <div className="border-t border-slate-200 pt-3">
                 <div className="flex justify-between text-xs text-slate-400">
-                  <span>Most Volatile: <strong>Tomato (Golbheda)</strong></span>
-                  <span>Highest Price crop: <strong>Ginger (Aduwa)</strong></span>
+                  <span>
+                    Most Volatile: <strong>Tomato (Golbheda)</strong>
+                  </span>
+                  <span>
+                    Highest Price crop: <strong>Ginger (Aduwa)</strong>
+                  </span>
                 </div>
               </div>
             </div>
@@ -634,7 +801,8 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                 <span>AgriTech Service Quality & Feature Requests</span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Review submitted feedback, set development statuses, and reply with administrative notes
+                Review submitted feedback, set development statuses, and reply
+                with administrative notes
               </p>
             </div>
 
@@ -653,7 +821,7 @@ export default function AdminDashboard({ user, token }: AdminProps) {
             </div>
           ) : (
             <div className="space-y-4">
-              {feedbackItems.map(fb => {
+              {feedbackItems.map((fb) => {
                 const isEditing = editingFeedbackId === fb.id;
 
                 return (
@@ -664,7 +832,7 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center space-x-2">
                         <span className="px-2.5 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-full text-[10px] uppercase">
-                          {fb.type.replace('_', ' ')}
+                          {fb.type.replace("_", " ")}
                         </span>
                         <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 font-bold rounded-full text-[10px] uppercase">
                           {fb.priority} Priority
@@ -675,13 +843,18 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                       </div>
 
                       <div className="flex items-center space-x-2">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
-                          fb.status === 'resolved' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
-                          fb.status === 'in_progress' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
-                          fb.status === 'under_review' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                          'bg-slate-100 text-slate-700 border-slate-300'
-                        }`}>
-                          {fb.status.replace('_', ' ')}
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                            fb.status === "resolved"
+                              ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                              : fb.status === "in_progress"
+                                ? "bg-indigo-100 text-indigo-800 border-indigo-300"
+                                : fb.status === "under_review"
+                                  ? "bg-amber-100 text-amber-800 border-amber-300"
+                                  : "bg-slate-100 text-slate-700 border-slate-300"
+                          }`}
+                        >
+                          {fb.status.replace("_", " ")}
                         </span>
 
                         <button
@@ -720,11 +893,27 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                     </div>
 
                     <div className="text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-4 gap-y-1 pt-1 border-t border-slate-200/60 dark:border-slate-800">
-                      <span>Submitter: <strong>{fb.userName || "User"}</strong></span>
-                      <span>Role: <strong className="capitalize">{fb.userRole}</strong></span>
-                      {fb.userDistrict && <span>District: <strong>{fb.userDistrict}</strong></span>}
-                      {fb.userPhone && <span>Phone: <strong className="font-mono">{fb.userPhone}</strong></span>}
-                      <span>Date: {new Date(fb.created_at).toLocaleString()}</span>
+                      <span>
+                        Submitter: <strong>{fb.userName || "User"}</strong>
+                      </span>
+                      <span>
+                        Role:{" "}
+                        <strong className="capitalize">{fb.userRole}</strong>
+                      </span>
+                      {fb.userDistrict && (
+                        <span>
+                          District: <strong>{fb.userDistrict}</strong>
+                        </span>
+                      )}
+                      {fb.userPhone && (
+                        <span>
+                          Phone:{" "}
+                          <strong className="font-mono">{fb.userPhone}</strong>
+                        </span>
+                      )}
+                      <span>
+                        Date: {new Date(fb.created_at).toLocaleString()}
+                      </span>
                     </div>
 
                     {/* Admin Response Box */}
@@ -732,7 +921,7 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                       <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-3 rounded-lg text-xs text-emerald-900 dark:text-emerald-200 space-y-1">
                         <div className="font-bold text-[10px] uppercase flex items-center space-x-1 text-emerald-700 dark:text-emerald-300">
                           <ShieldCheck className="w-3.5 h-3.5" />
-                          <span>AgriTech Admin Reply / Note</span>
+                          <span>AgriTech Super Admin Reply / Note</span>
                         </div>
                         <p className="text-xs italic">{fb.adminNotes}</p>
                       </div>
@@ -743,31 +932,47 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                       <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 p-4 rounded-xl space-y-3 mt-3 animate-in fade-in duration-150">
                         <div className="font-bold text-xs uppercase text-emerald-800 dark:text-emerald-400 flex items-center space-x-1">
                           <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                          <span>Update Status & Admin Notes</span>
+                          <span>Update Status & Super Admin Notes</span>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Set Development Status</label>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                              Set Development Status
+                            </label>
                             <select
                               value={newStatus}
-                              onChange={e => setNewStatus(e.target.value)}
+                              onChange={(e) => setNewStatus(e.target.value)}
                               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-semibold"
                             >
-                              <option value="pending">Pending Review (प्रतीक्षारत)</option>
-                              <option value="under_review">Under Review (समीक्षाधीन)</option>
-                              <option value="in_progress">In Progress (विकास भइरहेको)</option>
-                              <option value="resolved">Resolved / Deployed (सम्पन्न)</option>
-                              <option value="dismissed">Dismissed (खारेज)</option>
+                              <option value="pending">
+                                Pending Review (प्रतीक्षारत)
+                              </option>
+                              <option value="under_review">
+                                Under Review (समीक्षाधीन)
+                              </option>
+                              <option value="in_progress">
+                                In Progress (विकास भइरहेको)
+                              </option>
+                              <option value="resolved">
+                                Resolved / Deployed (सम्पन्न)
+                              </option>
+                              <option value="dismissed">
+                                Dismissed (खारेज)
+                              </option>
                             </select>
                           </div>
 
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Admin Response Note</label>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                              Super Admin Response Note
+                            </label>
                             <input
                               type="text"
                               value={adminNotesInput}
-                              onChange={e => setAdminNotesInput(e.target.value)}
+                              onChange={(e) =>
+                                setAdminNotesInput(e.target.value)
+                              }
                               placeholder="e.g. Evaluating shortcode gateway with Ncell."
                               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs"
                             />
@@ -786,12 +991,13 @@ export default function AdminDashboard({ user, token }: AdminProps) {
                             disabled={updatingFeedback}
                             className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs transition"
                           >
-                            {updatingFeedback ? "Saving..." : "Save Admin Response"}
+                            {updatingFeedback
+                              ? "Saving..."
+                              : "Save Super Admin Response"}
                           </button>
                         </div>
                       </div>
                     )}
-
                   </div>
                 );
               })}
@@ -805,7 +1011,9 @@ export default function AdminDashboard({ user, token }: AdminProps) {
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-5 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-slate-800 text-sm font-display">{previewImage.title}</h3>
+              <h3 className="font-bold text-slate-800 text-sm font-display">
+                {previewImage.title}
+              </h3>
               <button
                 type="button"
                 onClick={() => setPreviewImage(null)}

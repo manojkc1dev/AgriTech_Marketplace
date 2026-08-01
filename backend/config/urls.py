@@ -11,7 +11,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # SimpleJWT Endpoints
-    path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # OpenAPI Schema & Documentation Endpoints
@@ -25,8 +25,8 @@ urlpatterns = [
     path('api/demands/', include('apps.demands.urls')),
     path('api/negotiations/', include('apps.negotiations.urls')),
     path('api/', include('apps.products.urls')),
+
     # path('api/products/', include('apps.products.urls')),
-    
     path('api/orders/', include('apps.orders.urls')),
     path('api/payments/', include('apps.payments.urls')),
     path('api/logistics/', include('apps.logistics.urls')),
@@ -34,4 +34,5 @@ urlpatterns = [
     path('api/notifications/', include('apps.notifications.urls')),
     path('api/wishlist/', include('apps.wishlist.urls')),
     path('api/reports/', include('apps.reports.urls')),
+    path("api/cart/", include("apps.cart.urls")),
 ]

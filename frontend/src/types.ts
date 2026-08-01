@@ -29,6 +29,9 @@ export interface User {
   nationalIdDocUrl?: string;
   verificationNotes?: string;
   verificationSubmittedAt?: string;
+
+  // Security Flag
+  is_first_login?: boolean;
 }
 
 export interface MarketPrice {
@@ -62,14 +65,12 @@ export type DemandStatus = 'active' | 'fulfilled' | 'cancelled';
 
 export interface DemandPost {
   id: string;
-  buyerId: string;
   crop: string;
-  quantity_needed: number;
+  quantityRequired: number;
   unit: string;
-  offered_price: number;
-  status: DemandStatus;
-  created_at: string;
-  buyerName?: string;
+  targetPricePerUnit: number;
+  requiredByDate?: string;
+  buyerName: string;
   district?: string;
 }
 
