@@ -1,0 +1,6 @@
+{
+  "name": "AgriTech Nepal - Wholesale Price Index & Logistics",
+  "description": "National market price index, daily produce rate tracker, and B2B cold-chain supply logistics platform for Bagmati Province, Nepal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
