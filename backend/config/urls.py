@@ -9,6 +9,8 @@ from drf_spectacular.views import (
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/admin/users/', include('apps.users.urls')),
+    path('api/', include('users.urls')),
 
     # SimpleJWT Endpoints
     path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
@@ -24,7 +26,7 @@ urlpatterns = [
     path('api/market-prices/', include('apps.market_prices.urls')),
     path('api/demands/', include('apps.demands.urls')),
     path('api/negotiations/', include('apps.negotiations.urls')),
-    path('api/', include('apps.products.urls')),
+    path('api/products/', include('apps.products.urls')),
 
     # path('api/products/', include('apps.products.urls')),
     path('api/orders/', include('apps.orders.urls')),
@@ -34,5 +36,5 @@ urlpatterns = [
     path('api/notifications/', include('apps.notifications.urls')),
     path('api/wishlist/', include('apps.wishlist.urls')),
     path('api/reports/', include('apps.reports.urls')),
-    path("api/cart/", include("apps.cart.urls")),
+    path('api/cart/', include('apps.cart.urls')),
 ]

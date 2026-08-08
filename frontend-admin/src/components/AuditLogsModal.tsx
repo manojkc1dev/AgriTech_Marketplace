@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { AuditLog } from "../types";
-import { X, ShieldCheck, Search, Filter, History, FileText, CheckCircle2 } from "lucide-react";
-import { useLanguage } from "../context/LanguageContext";
+import { useState, useEffect, useCallback } from "react";
+import type { AuditLog } from "../../../frontend/src/types";
+import { X, Search, Filter, History } from "lucide-react";
+import { useLanguage } from "../../../frontend/src/context/LanguageContext";
 
 interface AuditLogsModalProps {
   isOpen: boolean;
@@ -9,24 +9,22 @@ interface AuditLogsModalProps {
   token: string;
 }
 
-export default function AuditLogsModal({ isOpen, onClose, token }: AuditLogsModalProps) {
+export default function AuditLogsModal({
+  isOpen,
+  onClose,
+  token,
+}: AuditLogsModalProps) {
   const { t } = useLanguage();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchAuditLogs();
-    }
-  }, [isOpen]);
-
-  const fetchAuditLogs = async () => {
+  const fetchAuditLogs = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/audit-logs", {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
@@ -37,13 +35,30 @@ export default function AuditLogsModal({ isOpen, onClose, token }: AuditLogsModa
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (isOpen) {
+      queueMicrotask(() => {
+        if (isMounted) {
+          fetchAuditLogs();
+        }
+      });
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, fetchAuditLogs]);
 
   if (!isOpen) return null;
 
-  const filteredLogs = logs.filter(log => {
-    const matchesCategory = filterCategory === "all" || log.category === filterCategory;
-    const matchesSearch = 
+  const filteredLogs = logs.filter((log) => {
+    const matchesCategory =
+      filterCategory === "all" || log.category === filterCategory;
+    const matchesSearch =
       log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.details.toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.userName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -53,7 +68,6 @@ export default function AuditLogsModal({ isOpen, onClose, token }: AuditLogsModa
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
       <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-6 flex flex-col max-h-[85vh]">
-        
         {/* Header */}
         <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-2.5">
@@ -62,10 +76,12 @@ export default function AuditLogsModal({ isOpen, onClose, token }: AuditLogsModa
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                {t("Regulatory Audit Trail & Log Compliance")} (अनुगमन र अडिट लग)
+                {t("Regulatory Audit Trail & Log Compliance")} (अनुगमन र अडिट
+                लग)
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Immutable system event history for B2B contract verification and dispute tracking
+                Immutable system event history for B2B contract verification and
+                dispute tracking
               </p>
             </div>
           </div>
@@ -111,9 +127,13 @@ export default function AuditLogsModal({ isOpen, onClose, token }: AuditLogsModa
         {/* Audit Log Table */}
         <div className="flex-1 overflow-y-auto p-4">
           {loading ? (
-            <div className="p-8 text-center text-xs text-slate-400">Loading audit trail...</div>
+            <div className="p-8 text-center text-xs text-slate-400">
+              Loading audit trail...
+            </div>
           ) : filteredLogs.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-400">No matching audit events recorded.</div>
+            <div className="p-8 text-center text-xs text-slate-400">
+              No matching audit events recorded.
+            </div>
           ) : (
             <div className="overflow-x-auto border rounded-xl border-slate-200 dark:border-slate-800">
               <table className="w-full text-left text-xs">
@@ -128,12 +148,17 @@ export default function AuditLogsModal({ isOpen, onClose, token }: AuditLogsModa
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
                   {filteredLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                    <tr
+                      key={log.id}
+                      className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition"
+                    >
                       <td className="p-3 whitespace-nowrap font-mono text-[11px] text-slate-500">
                         {new Date(log.timestamp).toLocaleString()}
                       </td>
                       <td className="p-3 whitespace-nowrap">
-                        <span className="font-bold text-slate-800 dark:text-slate-200">{log.userName}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">
+                          {log.userName}
+                        </span>
                         <span className="ml-1.5 text-[9px] uppercase px-1.5 py-0.25 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold">
                           {log.userRole}
                         </span>
@@ -154,7 +179,6 @@ export default function AuditLogsModal({ isOpen, onClose, token }: AuditLogsModa
             </div>
           )}
         </div>
-
       </div>
     </div>
   );

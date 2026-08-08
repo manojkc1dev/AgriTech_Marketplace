@@ -95,12 +95,20 @@ export default function NotificationCenter({
     }
   };
 
-  // Fetch real notifications from backend API only
+  // Fetch real notifications from backend API with dynamic localStorage token check
   const fetchNotifications = async (showToastForNew = true) => {
-    if (!token || !user || haltPollingRef.current) return;
+    const currentToken =
+      token ||
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("token");
+    if (!currentToken || !user || haltPollingRef.current) return;
 
     try {
-      const res = await api.get("/notifications/");
+      const res = await api.get("/notifications/", {
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+        },
+      });
       const data: PriceNotification[] = res.data || [];
 
       setNotifications(data);
@@ -129,7 +137,11 @@ export default function NotificationCenter({
 
   useEffect(() => {
     haltPollingRef.current = false;
-    if (token && user) {
+    const currentToken =
+      token ||
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("token");
+    if (currentToken && user) {
       fetchNotifications(false);
       const interval = setInterval(() => fetchNotifications(true), 8000);
       return () => clearInterval(interval);
@@ -151,7 +163,11 @@ export default function NotificationCenter({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [isOpen]);
 
-  if (!token || !user) {
+  const currentToken =
+    token ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("token");
+  if (!currentToken || !user) {
     return null;
   }
 
@@ -162,16 +178,32 @@ export default function NotificationCenter({
     );
     setToasts((prev) => prev.filter((t) => t.id !== id));
 
-    if (token) {
-      api.patch(`/notifications/${id}/read/`, { isRead: true }).catch(() => {});
+    if (currentToken) {
+      api
+        .patch(
+          `/notifications/${id}/read/`,
+          { isRead: true },
+          {
+            headers: { Authorization: `Bearer ${currentToken}` },
+          },
+        )
+        .catch(() => {});
     }
   };
 
   const handleMarkAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     setToasts([]);
-    if (token) {
-      api.post("/notifications/read-all/").catch(() => {});
+    if (currentToken) {
+      api
+        .post(
+          "/notifications/read-all/",
+          {},
+          {
+            headers: { Authorization: `Bearer ${currentToken}` },
+          },
+        )
+        .catch(() => {});
     }
   };
 
@@ -180,8 +212,12 @@ export default function NotificationCenter({
     setNotifications((prev) => prev.filter((n) => n.id !== id));
     setToasts((prev) => prev.filter((t) => t.id !== id));
 
-    if (token) {
-      api.delete(`/notifications/${id}/`).catch(() => {});
+    if (currentToken) {
+      api
+        .delete(`/notifications/${id}/`, {
+          headers: { Authorization: `Bearer ${currentToken}` },
+        })
+        .catch(() => {});
     }
   };
 
@@ -214,7 +250,6 @@ export default function NotificationCenter({
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  // Helper to check if any notification matches a specific category text pattern
   const categoryHasItems = (catKey: NotificationCategory) => {
     if (catKey === "all") return notifications.length > 0;
     if (catKey === "unread") return unreadCount > 0;
@@ -359,7 +394,6 @@ export default function NotificationCenter({
     );
   };
 
-  // Define all available tabs mapping
   const allCategoryTabs: [NotificationCategory, string][] = [
     ["all", "All"],
     ["unread", "Unread"],
@@ -371,8 +405,6 @@ export default function NotificationCenter({
     ["support", "Support"],
   ];
 
-  // Filter tabs dynamically: Always show "All" & "Unread" if there are notifications,
-  // but only show specific category tabs if an incoming notification belongs to that category.
   const activeCategoryTabs = allCategoryTabs.filter(([catKey]) => {
     if (catKey === "all" || catKey === "unread")
       return notifications.length > 0;

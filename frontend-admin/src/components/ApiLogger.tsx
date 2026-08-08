@@ -1,13 +1,21 @@
-import React, { useState, useEffect } from "react";
-import { ApiLogEntry } from "../types";
-import { Terminal, Trash2, RefreshCw, ChevronDown, ChevronUp, CheckCircle, AlertCircle, Send, ArrowRight } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import type { ApiLogEntry } from "../../../frontend/src/types";
+import {
+  Terminal,
+  Trash2,
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle,
+  AlertCircle,
+} from "lucide-react";
 
 export default function ApiLogger() {
   const [logs, setLogs] = useState<ApiLogEntry[]>([]);
   const [isOpen, setIsOpen] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       const res = await fetch("/api/logs");
       if (!res.ok) return;
@@ -21,7 +29,7 @@ export default function ApiLogger() {
     } catch {
       // Silently ignore temporary network glitches during polling
     }
-  };
+  }, []);
 
   const clearLogs = async () => {
     try {
@@ -33,10 +41,26 @@ export default function ApiLogger() {
   };
 
   useEffect(() => {
-    fetchLogs();
-    const interval = setInterval(fetchLogs, 1500);
-    return () => clearInterval(interval);
-  }, []);
+    let isMounted = true;
+
+    // Defer initial fetch to prevent synchronous state updates inside the effect frame
+    queueMicrotask(() => {
+      if (isMounted) {
+        fetchLogs();
+      }
+    });
+
+    const interval = setInterval(() => {
+      if (isMounted) {
+        fetchLogs();
+      }
+    }, 1500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [fetchLogs]);
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -45,10 +69,10 @@ export default function ApiLogger() {
   // Build curl representation
   const getCurlCmd = (log: ApiLogEntry) => {
     let curl = `curl -X ${log.method} "${window.location.origin}${log.url}"`;
-    if (log.headers.authorization) {
+    if (log.headers?.authorization) {
       curl += ` \\\n  -H "Authorization: ${log.headers.authorization}"`;
     }
-    if (log.headers["content-type"]) {
+    if (log.headers?.["content-type"]) {
       curl += ` \\\n  -H "Content-Type: ${log.headers["content-type"]}"`;
     }
     if (log.requestBody && Object.keys(log.requestBody).length > 0) {
@@ -72,23 +96,27 @@ export default function ApiLogger() {
         <div className="flex items-center space-x-3">
           <button
             onClick={fetchLogs}
-            className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition"
+            className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition cursor-pointer"
             title="Refresh logs"
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={clearLogs}
-            className="text-slate-400 hover:text-rose-400 p-1 rounded hover:bg-slate-800 transition"
+            className="text-slate-400 hover:text-rose-400 p-1 rounded hover:bg-slate-800 transition cursor-pointer"
             title="Clear traffic logs"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition"
+            className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition cursor-pointer"
           >
-            {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {isOpen ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
           </button>
         </div>
       </div>
@@ -101,14 +129,17 @@ export default function ApiLogger() {
             </div>
           ) : (
             logs.map((log) => {
-              const isOk = log.responseStatus >= 200 && log.responseStatus < 300;
+              const isOk =
+                log.responseStatus >= 200 && log.responseStatus < 300;
               const isExpanded = expandedId === log.id;
 
               return (
                 <div
                   key={log.id}
                   className={`border rounded-lg transition-all ${
-                    isExpanded ? "border-slate-700 bg-slate-900" : "border-slate-800 bg-slate-950/50 hover:bg-slate-900/30"
+                    isExpanded
+                      ? "border-slate-700 bg-slate-900"
+                      : "border-slate-800 bg-slate-950/50 hover:bg-slate-900/30"
                   }`}
                 >
                   {/* Summary Bar */}
@@ -122,8 +153,8 @@ export default function ApiLogger() {
                           log.method === "POST"
                             ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
                             : log.method === "PATCH"
-                            ? "bg-blue-500/15 text-blue-400 border border-blue-500/20"
-                            : "bg-slate-800 text-slate-400 border border-slate-700"
+                              ? "bg-blue-500/15 text-blue-400 border border-blue-500/20"
+                              : "bg-slate-800 text-slate-400 border border-slate-700"
                         }`}
                       >
                         {log.method}
@@ -136,15 +167,23 @@ export default function ApiLogger() {
                     <div className="flex items-center space-x-2 shrink-0">
                       <span
                         className={`flex items-center space-x-1 font-semibold text-[10px] px-1.5 py-0.5 rounded ${
-                          isOk 
-                            ? "bg-emerald-500/10 text-emerald-400" 
+                          isOk
+                            ? "bg-emerald-500/10 text-emerald-400"
                             : "bg-rose-500/10 text-rose-400"
                         }`}
                       >
-                        {isOk ? <CheckCircle className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                        {isOk ? (
+                          <CheckCircle className="w-3 h-3" />
+                        ) : (
+                          <AlertCircle className="w-3 h-3" />
+                        )}
                         <span>{log.responseStatus}</span>
                       </span>
-                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-slate-500" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-500" />}
+                      {isExpanded ? (
+                        <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                      )}
                     </div>
                   </div>
 
@@ -160,7 +199,7 @@ export default function ApiLogger() {
                               e.stopPropagation();
                               navigator.clipboard.writeText(getCurlCmd(log));
                             }}
-                            className="text-slate-400 hover:text-emerald-400 transition font-sans text-[9px] bg-slate-800 px-1.5 py-0.5 rounded"
+                            className="text-slate-400 hover:text-emerald-400 transition font-sans text-[9px] bg-slate-800 px-1.5 py-0.5 rounded cursor-pointer"
                           >
                             Copy
                           </button>
@@ -176,7 +215,8 @@ export default function ApiLogger() {
                           <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">
                             Request Body
                           </div>
-                          {log.requestBody && Object.keys(log.requestBody).length > 0 ? (
+                          {log.requestBody &&
+                          Object.keys(log.requestBody).length > 0 ? (
                             <pre className="bg-slate-950 p-2 rounded border border-slate-800 text-sky-300 overflow-x-auto text-[10px] whitespace-pre-wrap max-h-32">
                               {JSON.stringify(log.requestBody, null, 2)}
                             </pre>
@@ -205,7 +245,7 @@ export default function ApiLogger() {
                       </div>
 
                       {/* Request Header */}
-                      {log.headers.authorization && (
+                      {log.headers?.authorization && (
                         <div>
                           <div className="text-[10px] text-slate-500 font-semibold uppercase mb-1">
                             Auth Header Sent
