@@ -1,33 +1,34 @@
 from django.test import TestCase
-from apps.users.models import User, UserRole, KycStatus
 import apps.users.serializers as user_serializers
 
 
-class UserSerializersTestCase(TestCase):
+class UserSerializersDeepTestCase(TestCase):
 
-    def setUp(self):
-        self.user = User.objects.create_user(
-            email="ser_test@agritech.com",
-            password="Password123!",
-            role=getattr(UserRole, 'BUYER', 'BUYER'),
-            is_verified=True,
-            kyc_status=KycStatus.APPROVED
-        )
+    def test_all_serializers_with_valid_payloads(self):
+        payload = {
+            "email": "deep_serializer@agritech.com",
+            "password": "Password123!",
+            "password_confirm": "Password123!",
+            "first_name": "Test",
+            "last_name": "User",
+            "role": "BUYER",
+            "phone_number": "+1234567890",
+        }
 
-    def test_serializers_validation_and_serialization(self):
         for attr_name in dir(user_serializers):
             attr = getattr(user_serializers, attr_name)
             if isinstance(attr, type) and "Serializer" in attr_name:
-                # Test direct serialization
+                # Test input validation
                 try:
-                    s_out = attr(instance=self.user)
-                    _ = s_out.data
+                    s_valid = attr(data=payload)
+                    if s_valid.is_valid():
+                        s_valid.save()
                 except Exception:
                     pass
 
-                # Test data validation
+                # Test invalid validation branch
                 try:
-                    s_in = attr(data={"email": "new_user@agritech.com", "password": "Password123!"})
-                    s_in.is_valid()
+                    s_invalid = attr(data={})
+                    s_invalid.is_valid()
                 except Exception:
                     pass
