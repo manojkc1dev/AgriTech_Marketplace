@@ -38,32 +38,14 @@ THIRD_PARTY_APPS = [
 # Local SaaS Apps
 LOCAL_APPS = [
     'apps.core',
-    'apps.authentication',
     'apps.users',
-    'apps.categories',
     'apps.products',
-    'apps.inventory',
-    'apps.market_prices',
-    'apps.demands',
-    'apps.cart',
-    'apps.wishlist',
     'apps.orders',
-    'apps.negotiations',
-    'apps.invoices',
-    'apps.payments',
-    'apps.subscriptions',
+    'apps.marketplace',
     'apps.logistics',
-    'apps.addresses',
-    'apps.notifications',
-    'apps.reports',
-    'apps.dashboard',
-    'apps.reviews',
-    'apps.coupons',
     'apps.analytics',
-    'apps.support',
-    'apps.media_manager',
-    'apps.ai_engine',
-    'apps.audit_logs',
+    'apps.cooperatives',
+    
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -128,33 +110,33 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# REST Framework Configuration
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
-    ),
-    'DEFAULT_FILTER_BACKENDS': (
-        'django_filters.rest_framework.DjangoFilterBackend',
-    ),
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
 }
 
-# JWT Authentication Config
+# Simple JWT Configuration Details
+from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
 
 # CORS Configuration for React (Vite)
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
     "http://localhost:3000",
+    "http://127.0.0.1:3000"
 ]
 
 

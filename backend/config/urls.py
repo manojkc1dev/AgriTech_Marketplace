@@ -1,40 +1,26 @@
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from drf_spectacular.views import (
-    SpectacularAPIView, 
-    SpectacularRedocView, 
-    SpectacularSwaggerView
-)
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/admin/users/', include('apps.users.urls')),
-    path('api/', include('users.urls')),
+    path('dj-admin/', admin.site.urls),
 
-    # SimpleJWT Endpoints
-    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    # 1. CLIENT ENDPOINTS (Includes user login, register, profile via apps.users.urls)
+    path('api/v1/auth/', include(('apps.users.urls', 'users'), namespace='client_auth')),
+    path('api/v1/products/', include(('apps.products.urls', 'products'), namespace='client_products')),
+    path('api/v1/orders/', include(('apps.orders.urls', 'orders'), namespace='client_orders')),
+    path('api/v1/marketplace/', include(('apps.marketplace.urls', 'marketplace'), namespace='client_marketplace')),
+    path('api/v1/logistics/', include(('apps.logistics.urls', 'logistics'), namespace='client_logistics')),
+    path('api/v1/cooperatives/', include(('apps.cooperatives.urls', 'cooperatives'), namespace='client_cooperatives')),
 
-    # OpenAPI Schema & Documentation Endpoints
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    # 2. ADMIN ENDPOINTS
+    path('api/v1/admin/users/', include(('apps.users.urls', 'users'), namespace='admin_users')),
+    path('api/v1/admin/marketplace/', include(('apps.marketplace.urls', 'marketplace'), namespace='admin_marketplace')),
+    path('api/v1/admin/logistics/', include(('apps.logistics.urls', 'logistics'), namespace='admin_logistics')),
+    path('api/v1/admin/analytics/', include(('apps.analytics.urls', 'analytics'), namespace='admin_analytics')),
 
-    # Application Endpoints
-    path('api/auth/', include('apps.authentication.urls')),
-    path('api/market-prices/', include('apps.market_prices.urls')),
-    path('api/demands/', include('apps.demands.urls')),
-    path('api/negotiations/', include('apps.negotiations.urls')),
-    path('api/products/', include('apps.products.urls')),
-
-    # path('api/products/', include('apps.products.urls')),
-    path('api/orders/', include('apps.orders.urls')),
-    path('api/payments/', include('apps.payments.urls')),
-    path('api/logistics/', include('apps.logistics.urls')),
-    path('api/reviews/', include('apps.reviews.urls')),
-    path('api/notifications/', include('apps.notifications.urls')),
-    path('api/wishlist/', include('apps.wishlist.urls')),
-    path('api/reports/', include('apps.reports.urls')),
-    path('api/cart/', include('apps.cart.urls')),
+    # 3. DIRECT MAPPINGS (Frontend legacy/direct compatibility)
+    path('api/listings/', include(('apps.products.urls', 'listings'))),
+    path('api/orders/', include(('apps.orders.urls', 'orders'))),
+    path('api/prices/', include(('apps.marketplace.urls', 'prices'))),
+    path('api/cooperatives/', include(('apps.cooperatives.urls', 'cooperatives'))),
 ]

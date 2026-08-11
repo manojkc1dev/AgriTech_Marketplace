@@ -1,8 +1,16 @@
 from django.urls import path
-from .views import pending_verification_view, verify_user_view, delete_user_view
+from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
+from .views import LoginView, RegisterView, UserProfileView
+
+app_name = 'users'
 
 urlpatterns = [
-    path('admin/users/pending-verification/', pending_verification_view, name='admin-pending-users'),
-    path('admin/users/<int:user_id>/verify/', verify_user_view, name='admin-verify-user'),
-    path('admin/users/<int:user_id>/', delete_user_view, name='admin-delete-user'),
+    # Authentication routes
+    path('login/', LoginView.as_view(), name='login'),
+    path('register/', RegisterView.as_view(), name='register'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('token/verify/', TokenVerifyView.as_view(), name='token_verify'),
+    
+    # Profile & Account Management
+    path('profile/', UserProfileView.as_view(), name='profile'),
 ]

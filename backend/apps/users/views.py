@@ -1,46 +1,56 @@
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAdminUser
+from rest_framework import status, generics, permissions
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
-from django.contrib.auth import get_user_model
+from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView
 
-User = get_user_model()
-
-@api_view(['GET'])
-@permission_classes([IsAdminUser])
-def pending_verification_view(request):
-    pending_users = User.objects.filter(is_active=False)
-    
-    users_data = [{
-        "id": u.id,
-        "email": getattr(u, 'email', ''),
-        "role": getattr(u, 'role', 'user'),
-        "is_verified": getattr(u, 'is_verified', False)
-    } for u in pending_users]
-
-    return Response(users_data, status=status.HTTP_200_OK)
+from .serializers import (
+    CustomTokenObtainPairSerializer, 
+    RegisterSerializer, 
+    UserProfileSerializer
+)
 
 
-@api_view(['POST'])
-@permission_classes([IsAdminUser])
-def verify_user_view(request, user_id):
-    try:
-        user = User.objects.get(pk=user_id)
-        user.is_active = True
-        if hasattr(user, 'is_verified'):
-            user.is_verified = True
-        user.save()
-        return Response({"message": "User verified successfully."}, status=status.HTTP_200_OK)
-    except User.DoesNotExist:
-        return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+class LoginView(TokenObtainPairView):
+    """
+    Authenticate user using Email and Password, returns JWT access and refresh tokens.
+    """
+    permission_classes = (AllowAny,)
+    serializer_class = CustomTokenObtainPairSerializer
 
 
-@api_view(['DELETE'])
-@permission_classes([IsAdminUser])
-def delete_user_view(request, user_id):
-    try:
-        user = User.objects.get(pk=user_id)
-        user.delete()
-        return Response({"message": "User deleted successfully."}, status=status.HTTP_200_OK)
-    except User.DoesNotExist:
-        return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+class RegisterView(APIView):
+    """
+    Register new user profiles into the marketplace platform.
+    """
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response(
+                {
+                    "message": "User registered successfully. Please complete KYC verification.",
+                    "user": {
+                        "id": user.id,
+                        "username": user.username,
+                        "email": user.email,
+                        "role": user.role,
+                        "kyc_status": user.kyc_status,
+                    },
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    """
+    Retrieve or update profile details for the currently authenticated user.
+    """
+    serializer_class = UserProfileSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self):
+        return self.request.user

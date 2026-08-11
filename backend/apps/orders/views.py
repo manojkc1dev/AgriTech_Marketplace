@@ -1,134 +1,86 @@
-from rest_framework.views import APIView
+from django.db import models
+from django.core.exceptions import ValidationError
+from rest_framework import viewsets, status, permissions
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import serializers, status, permissions
-from django.db import transaction
-from django.db.models import Q
-from .models import Order, OrderItem, OrderStatus
-from .serializers import OrderSerializer
-from apps.products.models import Product
-from drf_spectacular.utils import extend_schema, inline_serializer
+
+from apps.users.models import UserRole
+from apps.orders.models import Order
+from apps.orders.permissions import IsOrderParticipantOrAdmin
+from apps.orders.serializers import (
+    OrderCreateSerializer,
+    OrderListSerializer,
+    OrderDetailSerializer,
+    OrderStateTransitionSerializer
+)
+from apps.orders.services import OrderService
 
 
-class OrderListCreateView(APIView):
-    """
-    GET: List current user's orders (buyer or seller)
-    POST: Checkout / Place new order (atomically deducts product stock)
-    """
-    permission_classes = [permissions.IsAuthenticated]
+class OrderViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsOrderParticipantOrAdmin]
+    http_method_names = ['get', 'post']
 
-    def get(self, request):
-        orders = Order.objects.filter(
-            Q(buyer=request.user) | Q(farmer=request.user)
-        ).prefetch_related('items')
-        serializer = OrderSerializer(orders, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def get_queryset(self):
+        user = self.request.user
 
-    @extend_schema(request=OrderSerializer)
-    @transaction.atomic
-    def post(self, request):
-        items_data = request.data.get('items', [])
-        delivery_address = request.data.get('delivery_address', '')
+        # Defensive check for unauthenticated requests
+        if not user or not user.is_authenticated:
+            return Order.objects.none()
 
-        if not items_data or not delivery_address:
+        queryset = Order.objects.prefetch_related('items__product').select_related('buyer')
+
+        # Platform administrators can view all orders
+        if user.is_superuser or user.role == UserRole.ADMIN:
+            return queryset.all()
+
+        # Buyers view their own orders; Sellers view orders containing their listed products
+        return queryset.filter(
+            models.Q(buyer=user) | models.Q(items__product__seller=user)
+        ).distinct()
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return OrderCreateSerializer
+        elif self.action == 'list':
+            return OrderListSerializer
+        return OrderDetailSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            order, created = OrderService.create_order(
+                buyer=request.user,
+                items_data=serializer.validated_data['items'],
+                shipping_address=serializer.validated_data['shipping_address'],
+                contact_phone=serializer.validated_data['contact_phone'],
+                idempotency_key=serializer.validated_data.get('idempotency_key')
+            )
+            response_serializer = OrderDetailSerializer(order, context={'request': request})
+            status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+            return Response(response_serializer.data, status=status_code)
+
+        except ValidationError as exc:
+            error_detail = exc.messages if hasattr(exc, 'messages') else str(exc)
+            return Response({"error": error_detail}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'], url_path='transition')
+    def transition_status(self, request, pk=None):
+        order = self.get_object()
+        serializer = OrderStateTransitionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            updated_order = OrderService.transition_order_status(
+                order_id=str(order.id),
+                target_status=serializer.validated_data['target_status'],
+                actor=request.user
+            )
             return Response(
-                {"error": "Please provide items and delivery address."},
-                status=status.HTTP_400_BAD_REQUEST
+                OrderDetailSerializer(updated_order, context={'request': request}).data,
+                status=status.HTTP_200_OK
             )
-
-        try:
-            first_product = Product.objects.get(id=items_data[0]['product_id'])
-            farmer = first_product.farmer
-        except Product.DoesNotExist:
-            return Response({"error": "Invalid product ID."}, status=status.HTTP_400_BAD_REQUEST)
-
-        order = Order.objects.create(
-            buyer=request.user,
-            farmer=farmer,
-            delivery_address=delivery_address,
-            total_amount=0
-        )
-
-        total = 0
-        for item in items_data:
-            try:
-                product = Product.objects.select_for_update().get(id=item['product_id'])
-            except Product.DoesNotExist:
-                transaction.set_rollback(True)
-                return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
-
-            quantity = int(item['quantity_kg'])
-
-            if product.available_stock_kg < quantity:
-                transaction.set_rollback(True)
-                return Response(
-                    {"error": f"Insufficient stock for {product.title}. Only {product.available_stock_kg}KG available."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            unit_price = product.price_per_kg
-            subtotal = quantity * unit_price
-            total += subtotal
-
-            # Deduct inventory stock automatically
-            product.available_stock_kg -= quantity
-            if product.available_stock_kg == 0:
-                product.is_available = False
-            product.save()
-
-            OrderItem.objects.create(
-                order=order,
-                product=product,
-                quantity_kg=quantity,
-                unit_price=unit_price
-            )
-
-        order.total_amount = total
-        order.save()
-
-        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
-
-
-class OrderDetailView(APIView):
-    """
-    GET: Retrieve single order details
-    PATCH: Farmer/Buyer updates order status
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_object(self, pk, user):
-        try:
-            return Order.objects.get(Q(id=pk) & (Q(buyer=user) | Q(farmer=user)))
-        except Order.DoesNotExist:
-            return None
-
-    @extend_schema(responses={200: OrderSerializer})
-    def get(self, request, pk):
-        order = self.get_object(pk, request.user)
-        if not order:
-            return Response({"error": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
-        return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
-
-    @extend_schema(
-        request=inline_serializer(
-            name='OrderStatusUpdateSchema',
-            fields={
-                'order_status': serializers.ChoiceField(
-                    choices=OrderStatus.choices,
-                    default=OrderStatus.PENDING
-                )
-            }
-        ),
-        responses={200: OrderSerializer}
-    )
-    def patch(self, request, pk):
-        order = self.get_object(pk, request.user)
-        if not order:
-            return Response({"error": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        new_status = request.data.get('order_status')
-        if new_status in OrderStatus.values:
-            order.order_status = new_status
-            order.save()
-            return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
-
-        return Response({"error": "Invalid order status."}, status=status.HTTP_400_BAD_REQUEST)
+        except ValidationError as exc:
+            error_detail = exc.messages if hasattr(exc, 'messages') else str(exc)
+            return Response({"error": error_detail}, status=status.HTTP_400_BAD_REQUEST)
