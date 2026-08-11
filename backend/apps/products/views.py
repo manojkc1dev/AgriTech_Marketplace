@@ -21,11 +21,27 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.select_related('category', 'seller', 'cooperative').prefetch_related('images').filter(is_deleted=False)
-    permission_classes = [IsVerifiedAndKYCApproved, IsProductOwnerOrCoopAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = ProductFilter
     search_fields = ['title', 'description', 'location_district', 'location_city']
     ordering_fields = ['price_per_unit', 'created_at', 'quantity_available']
     ordering = ['-created_at']
+
+    def get_permissions(self):
+        """
+        Dynamically assign permissions:
+        - SAFE methods (GET): Open to anyone (AllowAny) so customers can browse products.
+        - UNSAFE methods (POST, PUT, DELETE): Require user to be authenticated, KYC approved, and owner/admin.
+        """
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [permissions.AllowAny]
+        else:
+            permission_classes = [
+                permissions.IsAuthenticated,
+                IsVerifiedAndKYCApproved,
+                IsProductOwnerOrCoopAdminOrReadOnly
+            ]
+        return [permission() for permission in permission_classes]
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -46,7 +62,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='upload-image')
     def upload_image(self, request, pk=None):
-        product = self.get_object()
+        product = self.get_object()  # Triggers object-level permission checks
         
         if product.images.count() >= 5:
             return Response(

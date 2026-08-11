@@ -17,8 +17,15 @@ from apps.orders.services import OrderService
 
 
 class OrderViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsOrderParticipantOrAdmin]
     http_method_names = ['get', 'post']
+
+    def get_permissions(self):
+        """
+        Require authentication for all order endpoints.
+        Object-level checks run via IsOrderParticipantOrAdmin during retrieve/transition actions.
+        """
+        permission_classes = [permissions.IsAuthenticated, IsOrderParticipantOrAdmin]
+        return [permission() for permission in permission_classes]
 
     def get_queryset(self):
         user = self.request.user
@@ -30,7 +37,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         queryset = Order.objects.prefetch_related('items__product').select_related('buyer')
 
         # Platform administrators can view all orders
-        if user.is_superuser or user.role == UserRole.ADMIN:
+        if user.is_superuser or getattr(user, 'role', None) == UserRole.ADMIN:
             return queryset.all()
 
         # Buyers view their own orders; Sellers view orders containing their listed products
@@ -50,13 +57,23 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         try:
-            order, created = OrderService.create_order(
+            res = OrderService.create_order(
+                user=request.user,
                 buyer=request.user,
-                items_data=serializer.validated_data['items'],
-                shipping_address=serializer.validated_data['shipping_address'],
-                contact_phone=serializer.validated_data['contact_phone'],
-                idempotency_key=serializer.validated_data.get('idempotency_key')
+                items_data=serializer.validated_data.get('items', []),
+                shipping_address=serializer.validated_data.get('shipping_address', ''),
+                contact_phone=serializer.validated_data.get('contact_phone', ''),
+                payment_method=serializer.validated_data.get('payment_method', 'COD'),
+                idempotency_key=serializer.validated_data.get('idempotency_key'),
+                validated_data=serializer.validated_data
             )
+
+            # Support both (order, created) tuple and single Order object returns
+            if isinstance(res, tuple):
+                order, created = res
+            else:
+                order, created = res, True
+
             response_serializer = OrderDetailSerializer(order, context={'request': request})
             status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
             return Response(response_serializer.data, status=status_code)
@@ -67,7 +84,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='transition')
     def transition_status(self, request, pk=None):
-        order = self.get_object()
+        order = self.get_object()  # Explicitly invokes has_object_permission check
         serializer = OrderStateTransitionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 

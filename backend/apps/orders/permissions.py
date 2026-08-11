@@ -1,4 +1,5 @@
 from rest_framework import permissions
+from apps.users.models import UserRole
 
 
 class IsOrderParticipantOrAdmin(permissions.BasePermission):
@@ -15,15 +16,15 @@ class IsOrderParticipantOrAdmin(permissions.BasePermission):
             return False
 
         is_admin = (
-            request.user.is_staff 
-            or getattr(request.user, 'role', '') in ['ADMIN', 'COOP_ADMIN']
+            request.user.is_staff
+            or getattr(request.user, 'role', '') in [UserRole.ADMIN, UserRole.COOPERATIVE]
         )
         is_buyer = (
-            getattr(obj, 'buyer', None) == request.user 
+            getattr(obj, 'buyer', None) == request.user
             or getattr(obj, 'user', None) == request.user
         )
         is_seller = (
-            getattr(obj, 'seller', None) == request.user 
+            getattr(obj, 'seller', None) == request.user
             or getattr(obj, 'vendor', None) == request.user
         )
 
