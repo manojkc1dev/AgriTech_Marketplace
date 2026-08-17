@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     'corsheaders',
     # Internal bounded contexts
     'identity',
+    'kyc',
 ]
 
 MIDDLEWARE = [
