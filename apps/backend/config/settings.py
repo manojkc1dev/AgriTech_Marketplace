@@ -20,6 +20,8 @@ INSTALLED_APPS = [
     # Internal bounded contexts
     'identity',
     'kyc',
+    'marketplace',
+    'orders',
 ]
 
 MIDDLEWARE = [
