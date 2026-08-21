@@ -8,13 +8,18 @@ class ProduceBatchViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return ProduceBatch.objects.filter(producer=self.request.user)
+        return ProduceBatch.objects.filter(farmer=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(producer=self.request.user)
+        serializer.save(farmer=self.request.user)
 
 
 class ListingViewSet(viewsets.ModelViewSet):
-    queryset = Listing.objects.filter(status='ACTIVE')
+    queryset = Listing.objects.filter(is_active=True)
     serializer_class = ListingSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+
+class ProductViewSet(ListingViewSet):
+    """ViewSet for managing marketplace product listings."""
+    pass
