@@ -3,40 +3,67 @@ from django.db import models
 
 
 class ProduceBatch(models.Model):
-    producer = models.ForeignKey(
+    farmer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='produce_batches',
     )
     crop_name = models.CharField(max_length=100)
-    quantity_kg = models.DecimalField(max_digits=10, decimal_places=2)
-    harvest_date = models.DateField()
+    quantity = models.PositiveIntegerField()
+    unit = models.CharField(max_length=20)  # e.g., "kg", "quintal"
+    harvest_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.crop_name} ({self.quantity_kg} kg) - {self.producer.email}"
+        return f"{self.crop_name} ({self.quantity} {self.unit})"
 
 
-class ListingStatus(models.TextChoices):
-    ACTIVE = 'ACTIVE', 'Active'
-    SOLD_OUT = 'SOLD_OUT', 'Sold Out'
-    CANCELLED = 'CANCELLED', 'Cancelled'
+class Category(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=120, unique=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name_plural = 'Categories'
+
+    def __str__(self):
+        return self.name
 
 
 class Listing(models.Model):
-    produce_batch = models.ForeignKey(
-        ProduceBatch,
+    farmer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='listings',
     )
-    price_per_kg = models.DecimalField(max_digits=10, decimal_places=2)
-    available_quantity_kg = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(
-        max_length=20,
-        choices=ListingStatus.choices,
-        default=ListingStatus.ACTIVE,
+    batch = models.ForeignKey(
+        ProduceBatch,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='listings',
     )
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='listings',
+    )
+    
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
+    stock_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    quantity_available = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    unit = models.CharField(max_length=20)
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Listing #{self.id} - {self.produce_batch.crop_name} @ NRs.{self.price_per_kg}/kg"
+        return f"{self.title} ({self.farmer.email if self.farmer else 'No Farmer'})"
+
+
+# Model aliases for compatibility across imports
+ProductListing = Listing

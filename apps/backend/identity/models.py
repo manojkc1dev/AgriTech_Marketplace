@@ -23,8 +23,8 @@ class AdminRole(models.TextChoices):
 
 
 class User(AbstractUser):
-    email = models.EmailField(unique=True)
-    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    email = models.EmailField(unique=True, db_index=True)
+    phone_number = models.CharField(max_length=32, unique=True, null=True, blank=True, db_index=True)
     platform_role = models.CharField(
         max_length=30,
         choices=PlatformRole.choices,
@@ -40,6 +40,11 @@ class User(AbstractUser):
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
+
+    class Meta:
+        db_table = 'identity_users'
+        verbose_name = 'User'
+        verbose_name_plural = 'Users'
 
     def __str__(self):
         return f"{self.email} ({self.platform_role} / {self.admin_role})"

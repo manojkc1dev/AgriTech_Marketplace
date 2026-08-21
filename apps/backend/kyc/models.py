@@ -10,6 +10,12 @@ class VerificationStatus(models.TextChoices):
     REJECTED = 'REJECTED', 'Rejected'
 
 
+class DocumentType(models.TextChoices):
+    CITIZENSHIP = 'CITIZENSHIP', 'Citizenship'
+    PAN_CARD = 'PAN_CARD', 'PAN Card'
+    BUSINESS_REGISTRATION = 'BUSINESS_REGISTRATION', 'Business Registration'
+
+
 class KYCApplication(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -29,12 +35,6 @@ class KYCApplication(models.Model):
 
     def __str__(self):
         return f"KYC ({self.user.email}) - {self.status}"
-
-
-class DocumentType(models.TextChoices):
-    CITIZENSHIP = 'CITIZENSHIP', 'Citizenship'
-    PAN_CARD = 'PAN_CARD', 'PAN Card'
-    BUSINESS_REGISTRATION = 'BUSINESS_REGISTRATION', 'Business Registration'
 
 
 class DocumentRecord(models.Model):
