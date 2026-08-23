@@ -14,6 +14,7 @@ class ProduceBatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProduceBatch
         fields = '__all__'
+        read_only_fields = ['farmer']
 
 
 class ListingSerializer(serializers.ModelSerializer):
@@ -23,3 +24,4 @@ class ListingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Listing
         fields = '__all__'
+        read_only_fields = ['farmer']
