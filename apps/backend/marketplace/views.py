@@ -19,6 +19,9 @@ class ListingViewSet(viewsets.ModelViewSet):
     serializer_class = ListingSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
+    def perform_create(self, serializer):
+        serializer.save(farmer=self.request.user)
+
 
 class ProductViewSet(ListingViewSet):
     """ViewSet for managing marketplace product listings."""
