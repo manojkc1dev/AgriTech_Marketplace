@@ -19,3 +19,36 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = ['id', 'buyer', 'status', 'total_amount', 'items', 'created_at']
         read_only_fields = ['buyer', 'status', 'total_amount', 'created_at']
+
+
+class OrderStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ['status']
+
+    def validate_status(self, value):
+        allowed_statuses = [choice[0] for choice in Order.STATUS_CHOICES]
+        if value not in allowed_statuses:
+            raise serializers.ValidationError(
+                f"Invalid status. Must be one of: {allowed_statuses}"
+            )
+        return value
+
+
+class PaymentInitiateSerializer(serializers.Serializer):
+    gateway = serializers.ChoiceField(choices=['KHALTI', 'ESEWA'], default='KHALTI')
+    return_url = serializers.URLField(default="http://localhost:3000/payment/callback")
+
+
+class PaymentVerifySerializer(serializers.Serializer):
+    gateway = serializers.ChoiceField(choices=['KHALTI', 'ESEWA'], default='KHALTI')
+    pidx = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="Khalti payment index (pidx) token",
+    )
+    transaction_uuid = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="eSewa transaction UUID",
+    )
