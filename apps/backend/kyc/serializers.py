@@ -13,7 +13,7 @@ class DocumentRecordSerializer(serializers.ModelSerializer):
 
 
 class KYCApplicationSerializer(serializers.ModelSerializer):
-    documents = DocumentRecordSerializer(many=True)
+    documents = DocumentRecordSerializer(many=True, required=False)
     user_email = serializers.EmailField(source='user.email', read_only=True)
 
     class Meta:
@@ -40,6 +40,13 @@ class KYCApplicationSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
 
+    def _save_documents(self, application, documents_data):
+        """Helper to clear existing documents and replace them with new data."""
+        if documents_data:
+            application.documents.all().delete()
+            for doc_data in documents_data:
+                DocumentRecord.objects.create(application=application, **doc_data)
+
     def create(self, validated_data):
         documents_data = validated_data.pop('documents', [])
         user = self.context['request'].user
@@ -58,12 +65,23 @@ class KYCApplicationSerializer(serializers.ModelSerializer):
                 application.submitted_at = timezone.now()
                 application.rejection_reason = None
                 application.save()
-                application.documents.all().delete()
 
-            for doc_data in documents_data:
-                DocumentRecord.objects.create(application=application, **doc_data)
+            self._save_documents(application, documents_data)
 
         return application
+
+    def update(self, instance, validated_data):
+        documents_data = validated_data.pop('documents', [])
+
+        with transaction.atomic():
+            instance.status = VerificationStatus.SUBMITTED
+            instance.submitted_at = timezone.now()
+            instance.rejection_reason = None
+            instance.save()
+
+            self._save_documents(instance, documents_data)
+
+        return instance
 
 
 class KYCReviewSerializer(serializers.Serializer):
