@@ -45,6 +45,12 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+
+KHALTI_SECRET_KEY = os.environ.get('KHALTI_SECRET_KEY', '05bf95cc57244045b8df5fad06748dab')
+ESEWA_SECRET_KEY = os.getenv("ESEWA_SECRET_KEY", "8gBmca3TavXA")
+ESEWA_MERCHANT_CODE = os.getenv("ESEWA_MERCHANT_CODE", "EPAYTEST")
+
+
 ROOT_URLCONF = 'config.urls'
 WSGI_APPLICATION = 'config.wsgi.application'
 
@@ -110,7 +116,9 @@ SPECTACULAR_SETTINGS = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
+    "http://127.0.0.1:5500",
 ]
+
 CORS_ALLOW_CREDENTIALS = True
 
 LANGUAGE_CODE = 'en-us'

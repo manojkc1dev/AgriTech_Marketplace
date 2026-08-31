@@ -2,6 +2,10 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+admin.site.site_header = "AgriTech Marketplace Administration"
+admin.site.site_title = "AgriTech Admin Portal"
+admin.site.index_title = "Welcome to AgriTech Management Dashboard"
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/identity/', include('identity.urls')),
